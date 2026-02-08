@@ -1,0 +1,18 @@
+# Data & checkpoints (too large)
+data/
+checkpoints/
+results/
+venv/
+__pycache__/
+*.pyc
+*.pth
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+*.log
+*.tif
+*.tiff
+.DS_Store
+*.bak
