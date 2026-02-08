@@ -1,0 +1,35 @@
+# ============================================================
+# Lightweight DAE Configuration (~2-3M params)
+# ============================================================
+_base_: "default.yaml"
+
+# Model
+model:
+  name: "lightweight"
+  in_channels: 11    # RGB(3) + one-hot label(8)
+  num_classes: 8
+
+# Training
+training:
+  batch_size: 4
+  epochs: 100
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  optimizer: "adamw"
+  scheduler: "cosine"
+  patience: 15
+
+# Loss
+loss:
+  ce_weight: 1.0
+  dice_weight: 1.0
+  boundary_weight: 0.5
+
+# Noise
+noise:
+  type: "mixed"
+  rate_min: 0.05
+  rate_max: 0.30
+
+# Data augmentation
+augment: true

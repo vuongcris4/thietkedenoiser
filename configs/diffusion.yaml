@@ -1,0 +1,42 @@
+# ============================================================
+# Conditional Diffusion Denoiser Configuration
+# ============================================================
+_base_: "default.yaml"
+
+# Model
+model:
+  name: "diffusion"
+  num_classes: 8
+  T: 1000                     # Diffusion timesteps
+  base_dim: 64
+  dim_mults: [1, 2, 4, 8]
+  cond_channels: 3            # RGB conditioning
+  time_dim: 256
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+# Training
+training:
+  batch_size: 4
+  epochs: 100
+  lr: 2.0e-4
+  weight_decay: 1.0e-4
+  optimizer: "adamw"
+  scheduler: "cosine"
+  patience: 20
+  val_every: 5                # Validate every N epochs
+
+# Inference / validation
+inference:
+  denoise_steps: 50           # Denoising steps for inference
+  start_t: null               # Starting timestep (null = T//4)
+
+# Noise for validation
+noise:
+  type: "mixed"
+  rate_min: 0.10
+  rate_max: 0.25
+  noise_gen_seed: 99
+
+# Data augmentation
+augment: true

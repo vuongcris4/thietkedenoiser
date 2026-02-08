@@ -1,0 +1,23 @@
+# ============================================================
+# Default shared configuration
+# All model-specific configs inherit from this via `_base_`
+# ============================================================
+
+# Data
+data_root: "../data/OpenEarthMap"
+img_size: 512
+num_classes: 8
+
+# Reproducibility
+seed: 42
+
+# DataLoader
+num_workers: 2
+pin_memory: true
+
+# Output paths
+save_dir: "../checkpoints"
+log_dir: "../results/logs"
+
+# Device
+device: "auto"  # auto, cuda, cpu
