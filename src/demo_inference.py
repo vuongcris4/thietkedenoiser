@@ -1,5 +1,5 @@
 """Demo: visualize DAE inference on test samples."""
-import os, sys, torch, numpy as np
+import argparse, os, sys, torch, numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -30,35 +30,62 @@ def label_to_rgb(label):
         rgb[label == c] = COLORS[c]
     return rgb
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Demo: visualize DAE inference on test samples')
+    parser.add_argument('--checkpoint', type=str, required=True,
+                        help='Path to model checkpoint (.pth)')
+    parser.add_argument('--data_root', type=str, default='data/OpenEarthMap_wo_xBD',
+                        help='Path to dataset root (default: data/OpenEarthMap_wo_xBD)')
+    parser.add_argument('--output_dir', type=str, default='results/visualizations/demo_latest',
+                        help='Output directory for visualizations (default: results/visualizations/demo_latest)')
+    parser.add_argument('--model', type=str, default='lightweight',
+                        choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'],
+                        help='Model architecture (default: lightweight)')
+    parser.add_argument('--noise_type', type=str, default='mixed',
+                        choices=['random_flip', 'boundary', 'region_swap', 'confusion', 'mixed'],
+                        help='Noise type to apply (default: mixed)')
+    parser.add_argument('--noise_rates', type=float, nargs='+', default=[0.10, 0.20, 0.30],
+                        help='Noise rates to test (default: 0.10 0.20 0.30)')
+    parser.add_argument('--num_samples', type=int, default=4,
+                        help='Number of samples per noise rate (default: 4)')
+    parser.add_argument('--img_size', type=int, default=512,
+                        help='Image size (default: 512)')
+    parser.add_argument('--split', type=str, default='val', choices=['train', 'val'],
+                        help='Dataset split (default: val)')
+    parser.add_argument('--seed', type=int, default=2026,
+                        help='Random seed for sample selection (default: 2026)')
+    parser.add_argument('--dpi', type=int, default=150,
+                        help='DPI for saved figures (default: 150)')
+    return parser.parse_args()
+
 def main():
+    args = parse_args()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    ckpt_path = '/home/ubuntu/checkpoints/dae_lightweight_mixed_20260207_200336_best.pth'
-    data_root = '/home/ubuntu/thietkedenoiser/data/OpenEarthMap_wo_xBD'
-    out_dir = '/home/ubuntu/thietkedenoiser/results/visualizations/demo'
-    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
 
     # Load model
-    model = build_model('lightweight').to(device)
-    ckpt = torch.load(ckpt_path, map_location=device)
+    model = build_model(args.model).to(device)
+    ckpt = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(ckpt['model_state'])
     model.eval()
-    print(f'Loaded Lightweight DAE (best mIoU: {ckpt.get("best_miou", "?")})')
+    print(f'Loaded {args.model} DAE (best mIoU: {ckpt.get("best_miou", "?")})')
 
-    # Dataset with mixed noise at different rates
-    noise_rates = [0.10, 0.20, 0.30]
-    num_samples = 4
-
-    for nr in noise_rates:
+    for nr in args.noise_rates:
         dataset = DAEDataset(
-            data_root, split='val', img_size=512,
-            noise_type='mixed',
+            args.data_root, split=args.split, img_size=args.img_size,
+            noise_type=args.noise_type,
             noise_rate_range=(nr, nr),
             augment=False
         )
-        indices = np.random.RandomState(42).choice(len(dataset), num_samples, replace=False)
+        indices = np.random.RandomState(args.seed).choice(
+            len(dataset), args.num_samples, replace=False
+        )
 
-        fig, axes = plt.subplots(num_samples, 4, figsize=(20, 5*num_samples))
-        fig.suptitle(f'Lightweight DAE - Mixed Noise Rate: {nr:.0%}', fontsize=16, fontweight='bold')
+        fig, axes = plt.subplots(args.num_samples, 4, figsize=(20, 5*args.num_samples))
+        fig.suptitle(
+            f'{args.model.replace("_", " ").title()} DAE - {args.noise_type.replace("_", " ").title()} Noise Rate: {nr:.0%}',
+            fontsize=16, fontweight='bold'
+        )
 
         for i, idx in enumerate(indices):
             dae_input, clean_label = dataset[idx]
@@ -101,8 +128,8 @@ def main():
         fig.legend(handles=patches, loc='lower center', ncol=8, fontsize=10, frameon=True)
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.96])
-        fname = f'{out_dir}/demo_noise_{int(nr*100)}pct.png'
-        plt.savefig(fname, dpi=150, bbox_inches='tight')
+        fname = f'{args.output_dir}/demo_noise_{int(nr*100)}pct.png'
+        plt.savefig(fname, dpi=args.dpi, bbox_inches='tight')
         plt.close()
         print(f'Saved: {fname}')
 

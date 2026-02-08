@@ -40,6 +40,7 @@ src/
   evaluate_noise.py         # Noise analysis & statistics
   run_eval.py               # Run full evaluation
   plot_eval.py              # Plot evaluation results
+  demo_inference.py         # Inference demo with visualization
 ```
 
 ## Training
@@ -53,6 +54,47 @@ python src/train_dae.py --model unet_effnet --epochs 100 --batch_size 8
 # Train Diffusion
 python src/train_diffusion.py --epochs 20 --batch_size 4 --T 1000 --dim 64
 ```
+
+## Inference Demo
+
+Visualize DAE denoising results on test samples with comparison panels: **RGB Image → Noisy Label → DAE Output → Ground Truth**.
+
+```bash
+# Basic usage (requires --checkpoint)
+python src/demo_inference.py --checkpoint checkpoints/dae_lightweight_mixed_20260208_122512_best.pth
+
+# Full customization
+python src/demo_inference.py \
+    --checkpoint checkpoints/dae_lightweight_mixed_20260208_122512_best.pth \
+    --data_root data/OpenEarthMap_wo_xBD \
+    --output_dir results/visualizations/demo_latest \
+    --model lightweight \
+    --noise_type mixed \
+    --noise_rates 0.10 0.20 0.30 \
+    --num_samples 4 \
+    --img_size 512 \
+    --split val \
+    --seed 2026 \
+    --dpi 150
+```
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--checkpoint` | *(required)* | Path to model checkpoint (`.pth`) |
+| `--data_root` | `data/OpenEarthMap_wo_xBD` | Path to dataset root |
+| `--output_dir` | `results/visualizations/demo_latest` | Output directory for visualizations |
+| `--model` | `lightweight` | Model architecture: `lightweight`, `unet_resnet34`, `unet_effnet`, `conditional` |
+| `--noise_type` | `mixed` | Noise type: `random_flip`, `boundary`, `region_swap`, `confusion`, `mixed` |
+| `--noise_rates` | `0.10 0.20 0.30` | Space-separated noise rates to test |
+| `--num_samples` | `4` | Number of samples per noise rate |
+| `--img_size` | `512` | Input image size |
+| `--split` | `val` | Dataset split: `train`, `val` |
+| `--seed` | `2026` | Random seed for reproducible sample selection |
+| `--dpi` | `150` | DPI for saved figures |
+
+Output: one PNG per noise rate saved to `--output_dir`, e.g. `demo_noise_10pct.png`.
 
 ## Loss Function (DAE)
 
