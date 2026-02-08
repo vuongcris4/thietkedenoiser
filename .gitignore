@@ -1,18 +1,20 @@
-# Data & checkpoints (too large)
+# Large data
 data/
-checkpoints/
-results/
 venv/
 __pycache__/
 *.pyc
-*.pth
 *.pyo
 *.egg-info/
 .eggs/
 dist/
 build/
-*.log
 *.tif
 *.tiff
 .DS_Store
 *.bak
+
+# Large logs
+results/logs/*.log
+
+# Model weights
+*.pth
