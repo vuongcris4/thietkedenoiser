@@ -50,7 +50,7 @@ def parse_args():
                         help='Number of samples per noise rate (default: 4)')
     parser.add_argument('--img_size', type=int, default=512,
                         help='Image size (default: 512)')
-    parser.add_argument('--split', type=str, default='val', choices=['train', 'val'],
+    parser.add_argument('--split', type=str, default='val', choices=['train', 'val', 'test'],
                         help='Dataset split (default: val)')
     parser.add_argument('--seed', type=int, default=2026,
                         help='Random seed for sample selection (default: 2026)')

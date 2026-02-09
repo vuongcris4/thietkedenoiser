@@ -18,3 +18,4 @@ results/logs/*.log
 
 # Model weights
 *.pth
+results/*.log
