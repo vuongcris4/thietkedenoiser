@@ -57,7 +57,8 @@ def evaluate_model(model, data_root, noise_type, noise_rate, device,
     all_preds = np.concatenate(all_preds)
     all_targets = np.concatenate(all_targets)
     
-    # Compute metrics
+    # CHỈ TÍNH IoU cho 1 bug?
+    # Compute metrics 
     cleaned_iou = compute_iou(all_preds.reshape(-1, img_size, img_size)[0],
                                all_targets.reshape(-1, img_size, img_size)[0])
     

@@ -1,5 +1,14 @@
 """
-Train Denoising AutoEncoder.
+MỤC ĐÍCH FILE: Huấn luyện mô hình Denoising AutoEncoder (DAE).
+
+File này chứa toàn bộ pipeline huấn luyện DAE để khử nhiễu pseudo-label
+trong bài toán segmentation ảnh vệ tinh (OpenEarthMap). Quy trình bao gồm:
+  1. Đọc cấu hình từ file YAML (model, noise, loss, training hyperparams).
+  2. Tạo dataset (ảnh + label nhiễu) và DataLoader cho train/val.
+  3. Khởi tạo model, loss function (CE + Dice + Boundary), optimizer (AdamW),
+     scheduler (CosineAnnealing), và GradScaler (mixed precision - FP16).
+  4. Vòng lặp huấn luyện theo epoch: train → validate → ghi log → lưu checkpoint tốt nhất.
+  5. Hỗ trợ resume từ checkpoint và early stopping.
 
 Usage:
     python train_dae.py --config ../configs/dae_resnet34.yaml
@@ -26,6 +35,27 @@ from noise_generator import compute_iou, CLASS_NAMES
 
 
 def train_one_epoch(model, loader, criterion, optimizer, scaler, device):
+    """
+    Huấn luyện model qua 1 epoch.
+
+    Chức năng:
+      - Duyệt qua toàn bộ batch trong train_loader.
+      - Với mỗi batch: forward pass (mixed precision FP16) → tính loss → backward → cập nhật trọng số.
+      - Tích lũy loss và pixel accuracy để theo dõi tiến trình.
+      - In log mỗi 20 batch.
+
+    Args:
+        model: Mô hình DAE.
+        loader: DataLoader tập train (trả về cặp inputs=label_nhiễu, targets=label_sạch).
+        criterion: Hàm loss (DAELoss = CE + Dice + Boundary).
+        optimizer: Bộ tối ưu (AdamW).
+        scaler: GradScaler cho mixed precision training.
+        device: 'cuda' hoặc 'cpu'.
+
+    Returns:
+        avg_loss (float): Loss trung bình trên toàn epoch.
+        avg_acc (float): Pixel accuracy trung bình trên toàn epoch.
+    """
     model.train()
     total_loss = 0
     total_correct = 0
@@ -60,6 +90,26 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device):
 
 @torch.no_grad()
 def validate(model, loader, criterion, device):
+    """
+    Đánh giá model trên tập validation (không tính gradient).
+
+    Chức năng:
+      - Duyệt qua toàn bộ batch trong val_loader.
+      - Forward pass (FP16) → tính loss → thu thập prediction và ground truth.
+      - Tính IoU (Intersection over Union) cho từng class.
+      - Tính mIoU (mean IoU) trung bình trên tất cả các class.
+
+    Args:
+        model: Mô hình DAE.
+        loader: DataLoader tập validation.
+        criterion: Hàm loss (DAELoss).
+        device: 'cuda' hoặc 'cpu'.
+
+    Returns:
+        avg_loss (float): Loss trung bình trên tập val.
+        miou (float): Mean IoU trung bình các class.
+        ious (dict): IoU riêng cho từng class, ví dụ {'Bareland': 0.85, 'Forest': 0.92, ...}.
+    """
     model.eval()
     total_loss = 0
     all_preds = []
@@ -95,6 +145,27 @@ def validate(model, loader, criterion, device):
 
 
 def main():
+    """
+    Hàm chính điều phối toàn bộ quá trình huấn luyện DAE.
+
+    Chức năng theo thứ tự:
+      1. Đọc cấu hình: load file YAML (model, training, noise, loss, ...) qua load_config_from_args().
+      2. Thiết lập môi trường: seed, device (auto-detect GPU), tạo thư mục lưu checkpoint/log.
+      3. Tạo dataset & dataloader: DAEDataset cho train (có augment) và val (không augment).
+      4. Khởi tạo model: build_model() theo tên model trong config (resnet34, lightweight, effnet, ...).
+      5. Thiết lập training:
+         - Loss: DAELoss (kết hợp CrossEntropy + Dice + Boundary loss với trọng số từ config).
+         - Optimizer: AdamW với learning rate và weight decay từ config.
+         - Scheduler: CosineAnnealingLR giảm dần LR theo cosine.
+         - Scaler: GradScaler cho mixed precision (FP16).
+      6. Resume (tùy chọn): nạp lại model, optimizer, epoch, best_miou từ checkpoint.
+      7. Vòng lặp huấn luyện:
+         - Mỗi epoch: train_one_epoch() → validate() → scheduler.step().
+         - Ghi log (loss, acc, mIoU, IoU từng class, LR, thời gian).
+         - Lưu checkpoint khi mIoU cải thiện.
+         - Early stopping nếu mIoU không cải thiện sau 'patience' epoch.
+      8. Lưu lịch sử training ra file JSON.
+    """
     # Load config from YAML
     cfg = load_config_from_args()
     print_config(cfg, "DAE Training Configuration")
