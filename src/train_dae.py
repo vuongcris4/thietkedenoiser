@@ -371,9 +371,79 @@ def main():
     print(f'History saved to: {history_path}')
     print(f'{"="*60}')
 
-    # --- W&B Finish ---
+    # --- W&B: Log inference samples into this run ---
     if use_wandb:
         wandb.log({'best_miou': best_miou})
+        print('\nGenerating inference samples for W&B...')
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+
+            COLORS = np.array([
+                [128, 0, 0], [0, 255, 36], [148, 148, 148], [255, 255, 255],
+                [34, 97, 38], [0, 69, 255], [75, 181, 73], [222, 31, 7],
+            ], dtype=np.uint8)
+
+            def _label_to_rgb(label):
+                h, w = label.shape
+                rgb = np.zeros((h, w, 3), dtype=np.uint8)
+                for c in range(NUM_CLASSES):
+                    rgb[label == c] = COLORS[c]
+                return rgb
+
+            # Load best model for inference
+            best_ckpt_path = os.path.join(save_dir, f'{exp_name}_best.pth')
+            if os.path.exists(best_ckpt_path):
+                best_ckpt = torch.load(best_ckpt_path, map_location=device, weights_only=False)
+                model.load_state_dict(best_ckpt['model_state'])
+            model.eval()
+
+            n_samples = 4
+            for nr in [0.10, 0.20, 0.30]:
+                infer_dataset = DAEDataset(
+                    data_root, split='val', img_size=img_size,
+                    noise_type=noise_type,
+                    noise_rate_range=(nr, nr),
+                    augment=False
+                )
+                indices = np.random.RandomState(seed).choice(
+                    len(infer_dataset), min(n_samples, len(infer_dataset)), replace=False
+                )
+
+                fig, axes = plt.subplots(n_samples, 4, figsize=(20, 5 * n_samples))
+                fig.suptitle(f'{model_name} | {noise_type} noise {nr:.0%}', fontsize=16, fontweight='bold')
+
+                for i, idx in enumerate(indices):
+                    dae_input, clean_label = infer_dataset[idx]
+                    inp = dae_input.unsqueeze(0).to(device)
+                    with torch.no_grad():
+                        with autocast():
+                            output = model(inp)
+                    pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
+
+                    rgb_img = dae_input[:3].permute(1, 2, 0).numpy()
+                    rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6)
+                    noisy_label = dae_input[3:].argmax(dim=0).numpy()
+                    clean_np = clean_label.numpy()
+
+                    noisy_iou = compute_iou(noisy_label, clean_np)
+                    dae_iou = compute_iou(pred, clean_np)
+
+                    axes[i, 0].imshow(rgb_img); axes[i, 0].set_title('RGB'); axes[i, 0].axis('off')
+                    axes[i, 1].imshow(_label_to_rgb(noisy_label)); axes[i, 1].set_title(f'Noisy\nmIoU: {noisy_iou["mIoU"]:.3f}'); axes[i, 1].axis('off')
+                    axes[i, 2].imshow(_label_to_rgb(pred)); axes[i, 2].set_title(f'DAE Output\nmIoU: {dae_iou["mIoU"]:.3f}'); axes[i, 2].axis('off')
+                    axes[i, 3].imshow(_label_to_rgb(clean_np)); axes[i, 3].set_title('Ground Truth'); axes[i, 3].axis('off')
+
+                plt.tight_layout(rect=[0, 0.02, 1, 0.96])
+                wandb.log({f'inference/noise_{int(nr*100)}pct': wandb.Image(fig,
+                    caption=f'{model_name} | {noise_type} noise {nr:.0%}')})
+                plt.close()
+                print(f'  Logged inference noise_{int(nr*100)}pct to W&B')
+
+        except Exception as e:
+            print(f'  Warning: inference visualization failed: {e}')
+
         wandb.finish()
 
 
