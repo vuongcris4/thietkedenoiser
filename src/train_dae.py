@@ -392,10 +392,27 @@ def main():
 
         print('Generating inference table for W&B...')
         try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            import matplotlib.patches as mpatches
+
             COLORS = np.array([
                 [128, 0, 0], [0, 255, 36], [148, 148, 148], [255, 255, 255],
                 [34, 97, 38], [0, 69, 255], [75, 181, 73], [222, 31, 7],
             ], dtype=np.uint8)
+
+            # Log class legend
+            fig_legend, ax_legend = plt.subplots(figsize=(4, 3))
+            ax_legend.axis('off')
+            ax_legend.set_title('Class Legend', fontsize=14, fontweight='bold', pad=10)
+            patches = [mpatches.Patch(color=COLORS[c]/255., label=CLASS_NAMES[c])
+                       for c in range(NUM_CLASSES)]
+            ax_legend.legend(handles=patches, loc='center', fontsize=11, frameon=False,
+                             ncol=2, columnspacing=1.5, handlelength=2, handleheight=1.5)
+            fig_legend.tight_layout()
+            wandb.log({"class_legend": wandb.Image(fig_legend, caption="Class Color Legend")})
+            plt.close(fig_legend)
 
             def _label_to_rgb(label):
                 h, w = label.shape

@@ -9,6 +9,10 @@ Usage:
         --data_root data/OpenEarthMap
 """
 import argparse, os, sys, torch, numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from torch.cuda.amp import autocast
 import wandb
 
@@ -28,6 +32,19 @@ def label_to_rgb(label):
     for c in range(NUM_CLASSES):
         rgb[label == c] = COLORS[c]
     return rgb
+
+
+def make_legend_image():
+    """Create a color legend image mapping class names to their colors."""
+    fig, ax = plt.subplots(figsize=(4, 3))
+    ax.axis('off')
+    ax.set_title('Class Legend', fontsize=14, fontweight='bold', pad=10)
+    patches = [mpatches.Patch(color=COLORS[c] / 255., label=CLASS_NAMES[c])
+               for c in range(NUM_CLASSES)]
+    ax.legend(handles=patches, loc='center', fontsize=11, frameon=False,
+              ncol=2, columnspacing=1.5, handlelength=2, handleheight=1.5)
+    fig.tight_layout()
+    return fig
 
 
 def run_inference_table(model, data_root, img_size, noise_type, noise_rates,
@@ -56,7 +73,6 @@ def run_inference_table(model, data_root, img_size, noise_type, noise_rates,
                     output = model(inp)
             pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
 
-            # Extract images
             rgb_img = dae_input[:3].permute(1, 2, 0).numpy()
             rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
             noisy_label = dae_input[3:].argmax(dim=0).numpy()
@@ -66,8 +82,7 @@ def run_inference_table(model, data_root, img_size, noise_type, noise_rates,
             dae_iou = compute_iou(pred, clean_np)
 
             table.add_data(
-                f"sample_{i}",
-                f"{nr:.0%}",
+                f"sample_{i}", f"{nr:.0%}",
                 wandb.Image(rgb_img),
                 wandb.Image(label_to_rgb(noisy_label)),
                 wandb.Image(label_to_rgb(pred)),
@@ -123,6 +138,12 @@ def main():
     artifact.add_file(args.checkpoint)
     wandb.log_artifact(artifact)
     print(f'  Uploaded: {args.checkpoint}')
+
+    # Log class legend
+    print('Logging class legend...')
+    legend_fig = make_legend_image()
+    wandb.log({"class_legend": wandb.Image(legend_fig, caption="Class Color Legend")})
+    plt.close(legend_fig)
 
     # Generate inference table
     print('Generating inference table...')
