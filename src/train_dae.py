@@ -262,9 +262,19 @@ def main():
                             pin_memory=True)
 
     # Model
-    model = build_model(model_name).to(device)
+    model = build_model(
+        model_name,
+        in_channels=cfg["model"].get("in_channels", 11),
+        num_classes=cfg["model"].get("num_classes", NUM_CLASSES),
+    ).to(device)
     total_p, train_p = count_params(model)
     print(f'Model params: {total_p/1e6:.1f}M total, {train_p/1e6:.1f}M trainable')
+    if use_wandb:
+        wandb.config.update({
+            'total_params': total_p,
+            'trainable_params': train_p,
+            'total_params_M': round(total_p / 1e6, 2),
+        })
 
     # Training setup
     criterion = DAELoss(ce_weight=ce_weight, dice_weight=dice_weight,
