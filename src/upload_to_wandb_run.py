@@ -1,5 +1,5 @@
 """
-Upload inference images + checkpoint to an existing W&B run.
+Upload inference images (as W&B Table) + checkpoint to an existing W&B run.
 
 Usage:
     python3 src/upload_to_wandb_run.py \
@@ -9,9 +9,6 @@ Usage:
         --data_root data/OpenEarthMap
 """
 import argparse, os, sys, torch, numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 from torch.cuda.amp import autocast
 import wandb
 
@@ -32,11 +29,63 @@ def label_to_rgb(label):
         rgb[label == c] = COLORS[c]
     return rgb
 
+
+def run_inference_table(model, data_root, img_size, noise_type, noise_rates,
+                        n_samples, seed, device):
+    """Run inference and return a wandb.Table with individual images per row."""
+    columns = ["sample_id", "noise_rate", "rgb", "noisy_label", "dae_output",
+               "ground_truth", "noisy_mIoU", "dae_mIoU", "improvement"]
+    table = wandb.Table(columns=columns)
+
+    for nr in noise_rates:
+        dataset = DAEDataset(
+            data_root, split='val', img_size=img_size,
+            noise_type=noise_type,
+            noise_rate_range=(nr, nr),
+            augment=False
+        )
+        indices = np.random.RandomState(seed).choice(
+            len(dataset), min(n_samples, len(dataset)), replace=False
+        )
+
+        for i, idx in enumerate(indices):
+            dae_input, clean_label = dataset[idx]
+            inp = dae_input.unsqueeze(0).to(device)
+            with torch.no_grad():
+                with autocast():
+                    output = model(inp)
+            pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
+
+            # Extract images
+            rgb_img = dae_input[:3].permute(1, 2, 0).numpy()
+            rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
+            noisy_label = dae_input[3:].argmax(dim=0).numpy()
+            clean_np = clean_label.numpy()
+
+            noisy_iou = compute_iou(noisy_label, clean_np)
+            dae_iou = compute_iou(pred, clean_np)
+
+            table.add_data(
+                f"sample_{i}",
+                f"{nr:.0%}",
+                wandb.Image(rgb_img),
+                wandb.Image(label_to_rgb(noisy_label)),
+                wandb.Image(label_to_rgb(pred)),
+                wandb.Image(label_to_rgb(clean_np)),
+                round(noisy_iou["mIoU"], 4),
+                round(dae_iou["mIoU"], 4),
+                round(dae_iou["mIoU"] - noisy_iou["mIoU"], 4),
+            )
+
+    return table
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--run_id', required=True, help='W&B run ID to resume')
     parser.add_argument('--checkpoint', required=True, help='Path to checkpoint')
-    parser.add_argument('--model', required=True, choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'])
+    parser.add_argument('--model', required=True,
+                        choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'])
     parser.add_argument('--data_root', default='data/OpenEarthMap')
     parser.add_argument('--project', default='thietkedenoiser')
     parser.add_argument('--entity', default='vuongcris4-hcmute')
@@ -51,10 +100,8 @@ def main():
 
     # Resume existing W&B run
     wandb.init(
-        project=args.project,
-        entity=args.entity,
-        id=args.run_id,
-        resume="must",
+        project=args.project, entity=args.entity,
+        id=args.run_id, resume="must",
     )
     print(f'Resumed W&B run: {wandb.run.url}')
 
@@ -63,69 +110,32 @@ def main():
     ckpt = torch.load(args.checkpoint, map_location=device, weights_only=False)
     model.load_state_dict(ckpt['model_state'])
     model.eval()
-    print(f'Loaded {args.model} (best mIoU: {ckpt.get("best_miou", "?")})')
+    best_miou = ckpt.get("best_miou", "?")
+    print(f'Loaded {args.model} (best mIoU: {best_miou})')
 
-    # --- Upload checkpoint as artifact ---
-    print('Uploading checkpoint to W&B...')
+    # Upload checkpoint
+    print('Uploading checkpoint...')
     artifact = wandb.Artifact(
-        name=f'checkpoint-{args.model}',
-        type='model',
-        description=f'{args.model} best checkpoint (mIoU: {ckpt.get("best_miou", "?")})',
-        metadata={
-            'model': args.model,
-            'best_miou': ckpt.get('best_miou'),
-            'epoch': ckpt.get('epoch'),
-        }
+        name=f'checkpoint-{args.model}', type='model',
+        description=f'{args.model} best checkpoint (mIoU: {best_miou})',
+        metadata={'model': args.model, 'best_miou': best_miou, 'epoch': ckpt.get('epoch')}
     )
     artifact.add_file(args.checkpoint)
     wandb.log_artifact(artifact)
     print(f'  Uploaded: {args.checkpoint}')
 
-    # --- Generate & log inference images ---
-    print('Generating inference images...')
-    for nr in args.noise_rates:
-        dataset = DAEDataset(
-            args.data_root, split='val', img_size=args.img_size,
-            noise_type=args.noise_type,
-            noise_rate_range=(nr, nr),
-            augment=False
-        )
-        indices = np.random.RandomState(args.seed).choice(
-            len(dataset), min(args.n_samples, len(dataset)), replace=False
-        )
-
-        fig, axes = plt.subplots(args.n_samples, 4, figsize=(20, 5 * args.n_samples))
-        fig.suptitle(f'{args.model} | {args.noise_type} noise {nr:.0%}', fontsize=16, fontweight='bold')
-
-        for i, idx in enumerate(indices):
-            dae_input, clean_label = dataset[idx]
-            inp = dae_input.unsqueeze(0).to(device)
-            with torch.no_grad():
-                with autocast():
-                    output = model(inp)
-            pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
-
-            rgb_img = dae_input[:3].permute(1, 2, 0).numpy()
-            rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6)
-            noisy_label = dae_input[3:].argmax(dim=0).numpy()
-            clean_np = clean_label.numpy()
-
-            noisy_iou = compute_iou(noisy_label, clean_np)
-            dae_iou = compute_iou(pred, clean_np)
-
-            axes[i, 0].imshow(rgb_img); axes[i, 0].set_title('RGB'); axes[i, 0].axis('off')
-            axes[i, 1].imshow(label_to_rgb(noisy_label)); axes[i, 1].set_title(f'Noisy\nmIoU: {noisy_iou["mIoU"]:.3f}'); axes[i, 1].axis('off')
-            axes[i, 2].imshow(label_to_rgb(pred)); axes[i, 2].set_title(f'DAE Output\nmIoU: {dae_iou["mIoU"]:.3f}'); axes[i, 2].axis('off')
-            axes[i, 3].imshow(label_to_rgb(clean_np)); axes[i, 3].set_title('Ground Truth'); axes[i, 3].axis('off')
-
-        plt.tight_layout(rect=[0, 0.02, 1, 0.96])
-        wandb.log({f'inference/noise_{int(nr*100)}pct': wandb.Image(fig,
-            caption=f'{args.model} | {args.noise_type} noise {nr:.0%}')})
-        plt.close()
-        print(f'  Logged inference noise_{int(nr*100)}pct')
+    # Generate inference table
+    print('Generating inference table...')
+    table = run_inference_table(
+        model, args.data_root, args.img_size, args.noise_type,
+        args.noise_rates, args.n_samples, args.seed, device
+    )
+    wandb.log({"inference_results": table})
+    print(f'  Logged table with {len(table.data)} rows')
 
     wandb.finish()
     print('Done!')
+
 
 if __name__ == '__main__':
     main()
