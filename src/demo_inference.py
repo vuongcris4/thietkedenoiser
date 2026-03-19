@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from torch.cuda.amp import autocast
 
+try:
+    import wandb
+    HAS_WANDB = True
+except ImportError:
+    HAS_WANDB = False
+
 sys.path.insert(0, os.path.dirname(__file__))
 from dae_model import build_model, NUM_CLASSES
 from dataset import DAEDataset
@@ -62,6 +68,19 @@ def main():
     args = parse_args()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     os.makedirs(args.output_dir, exist_ok=True)
+
+    # W&B init
+    use_wandb = HAS_WANDB
+    if use_wandb:
+        wandb.init(
+            project="thietkedenoiser",
+            name=f"infer_{args.model}_{args.split}",
+            job_type="inference",
+            tags=["inference", args.model, args.noise_type, args.split],
+            config=vars(args),
+            reinit=True,
+        )
+        print(f'W&B run: {wandb.run.url}')
 
     # Load model
     model = build_model(args.model).to(device)
@@ -133,6 +152,15 @@ def main():
         plt.close()
         print(f'Saved: {fname}')
 
+        # Log to W&B
+        if use_wandb:
+            wandb.log({
+                f"demo/noise_{int(nr*100)}pct": wandb.Image(fname,
+                    caption=f"{args.model} | {args.noise_type} noise {nr:.0%}")
+            })
+
+    if use_wandb:
+        wandb.finish()
     print('Done!')
 
 if __name__ == '__main__':

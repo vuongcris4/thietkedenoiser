@@ -1,0 +1,21 @@
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_setup.py:_flush():81] Current SDK version is 0.25.1
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_setup.py:_flush():81] Configure stats pid to 497013
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_init.py:setup_run_log_directory():717] Logging user logs to /home/ubuntu/thietkedenoiser/wandb/run-20260319_022453-euifc0t1/logs/debug.log
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_init.py:setup_run_log_directory():718] Logging internal logs to /home/ubuntu/thietkedenoiser/wandb/run-20260319_022453-euifc0t1/logs/debug-internal.log
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_init.py:init():844] calling init triggers
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_init.py:init():849] wandb.init called with sweep_config: {}
+config: {'data_root': 'data/OpenEarthMap', 'img_size': 512, 'num_classes': 8, 'seed': 42, 'num_workers': 2, 'pin_memory': True, 'save_dir': 'checkpoints', 'log_dir': 'results/logs', 'device': 'auto', 'wandb.project': 'thietkedenoiser', 'wandb.entity': None, 'wandb.enabled': True, 'model.name': 'unet_resnet34', 'model.encoder_name': 'resnet34', 'model.encoder_weights': 'imagenet', 'model.in_channels': 11, 'model.num_classes': 8, 'training.batch_size': 4, 'training.epochs': 100, 'training.lr': 0.0001, 'training.weight_decay': 0.0001, 'training.optimizer': 'adamw', 'training.scheduler': 'cosine', 'training.patience': 15, 'loss.ce_weight': 1.0, 'loss.dice_weight': 1.0, 'loss.boundary_weight': 0.5, 'noise.type': 'mixed', 'noise.rate_min': 0.05, 'noise.rate_max': 0.3, 'augment': True, '_wandb': {}}
+2026-03-19 02:24:53,231 INFO    MainThread:497013 [wandb_init.py:init():892] starting backend
+2026-03-19 02:24:53,449 INFO    MainThread:497013 [wandb_init.py:init():895] sending inform_init request
+2026-03-19 02:24:53,454 INFO    MainThread:497013 [wandb_init.py:init():903] backend started and connected
+2026-03-19 02:24:53,456 INFO    MainThread:497013 [wandb_init.py:init():973] updated telemetry
+2026-03-19 02:24:53,460 INFO    MainThread:497013 [wandb_init.py:init():997] communicating run to backend with 90.0 second timeout
+2026-03-19 02:24:54,497 INFO    MainThread:497013 [wandb_init.py:init():1042] starting run threads in backend
+2026-03-19 02:24:54,555 INFO    MainThread:497013 [wandb_run.py:_console_start():2524] atexit reg
+2026-03-19 02:24:54,555 INFO    MainThread:497013 [wandb_run.py:_redirect():2373] redirect: wrap_raw
+2026-03-19 02:24:54,555 INFO    MainThread:497013 [wandb_run.py:_redirect():2442] Wrapping output streams.
+2026-03-19 02:24:54,555 INFO    MainThread:497013 [wandb_run.py:_redirect():2465] Redirects installed.
+2026-03-19 02:24:54,558 INFO    MainThread:497013 [wandb_init.py:init():1082] run started, returning control to user process
+2026-03-19 02:26:45,245 INFO    wandb-AsyncioManager-main:497013 [service_client.py:_forward_responses():134] Reached EOF.
+2026-03-19 02:26:45,246 INFO    wandb-AsyncioManager-main:497013 [mailbox.py:close():155] Closing mailbox, abandoning 1 handles.
