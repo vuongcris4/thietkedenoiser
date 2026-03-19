@@ -374,7 +374,23 @@ def main():
     # --- W&B: Log inference samples into this run ---
     if use_wandb:
         wandb.log({'best_miou': best_miou})
-        print('\nGenerating inference samples for W&B...')
+
+        # Upload checkpoint as artifact
+        ckpt_path = os.path.join(save_dir, f'{exp_name}_best.pth')
+        if os.path.exists(ckpt_path):
+            print('Uploading checkpoint to W&B...')
+            artifact = wandb.Artifact(
+                name=f'checkpoint-{model_name}',
+                type='model',
+                description=f'{model_name} best checkpoint (mIoU: {best_miou:.4f})',
+                metadata={'model': model_name, 'best_miou': best_miou,
+                          'epoch': epoch, 'noise_type': noise_type}
+            )
+            artifact.add_file(ckpt_path)
+            wandb.log_artifact(artifact)
+            print(f'  Uploaded: {ckpt_path}')
+
+        print('Generating inference samples for W&B...')
         try:
             import matplotlib
             matplotlib.use('Agg')
