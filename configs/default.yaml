@@ -21,3 +21,9 @@ log_dir: "../results/logs"
 
 # Device
 device: "auto"  # auto, cuda, cpu
+
+# Weights & Biases
+wandb:
+  project: "thietkedenoiser"
+  entity: null     # null = dùng default entity
+  enabled: true

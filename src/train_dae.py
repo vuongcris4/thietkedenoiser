@@ -27,8 +27,14 @@ from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler
 from datetime import datetime
 
+try:
+    import wandb
+    HAS_WANDB = True
+except ImportError:
+    HAS_WANDB = False
+
 sys.path.insert(0, os.path.dirname(__file__))
-from config import load_config_from_args, print_config
+from config import load_config_from_args, print_config, cfg_to_flat
 from dae_model import build_model, count_params, DAELoss
 from dataset import DAEDataset, NUM_CLASSES
 from noise_generator import compute_iou, CLASS_NAMES
@@ -218,6 +224,22 @@ def main():
     print(f'Device: {device}')
     print(f'{"="*60}\n')
 
+    # --- W&B Init ---
+    wandb_cfg = cfg.get("wandb", {})
+    use_wandb = HAS_WANDB and wandb_cfg.get("enabled", True)
+    if use_wandb:
+        wandb.init(
+            project=wandb_cfg.get("project", "thietkedenoiser"),
+            entity=wandb_cfg.get("entity", None),
+            name=exp_name,
+            config=cfg_to_flat(cfg),
+            tags=[f"dae", model_name, noise_type],
+            reinit=True,
+        )
+        print(f'W&B run: {wandb.run.url}')
+    else:
+        print('W&B disabled or not installed.')
+
     # Data
     train_dataset = DAEDataset(
         data_root, split='train', img_size=img_size,
@@ -295,6 +317,21 @@ def main():
         }
         history.append(log_entry)
 
+        # W&B log
+        if use_wandb:
+            wandb_log = {
+                'epoch': epoch,
+                'train/loss': train_loss,
+                'train/acc': train_acc,
+                'val/loss': val_loss,
+                'val/mIoU': val_miou,
+                'lr': optimizer.param_groups[0]['lr'],
+                'epoch_time': dt,
+            }
+            for cls_name, iou_val in val_ious.items():
+                wandb_log[f'val/IoU_{cls_name}'] = iou_val
+            wandb.log(wandb_log)
+
         # Print
         ious_str = ' '.join([f'{k[:4]}:{v:.3f}' for k, v in val_ious.items()])
         print(f'Epoch {epoch:3d}/{epochs} | '
@@ -333,6 +370,11 @@ def main():
     print(f'Best mIoU: {best_miou:.4f}')
     print(f'History saved to: {history_path}')
     print(f'{"="*60}')
+
+    # --- W&B Finish ---
+    if use_wandb:
+        wandb.log({'best_miou': best_miou})
+        wandb.finish()
 
 
 if __name__ == '__main__':
