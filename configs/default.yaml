@@ -4,7 +4,7 @@
 # ============================================================
 
 # Data
-data_root: "../data/OpenEarthMap"
+data_root: "data/OpenEarthMap"
 img_size: 512
 num_classes: 8
 
@@ -16,8 +16,8 @@ num_workers: 2
 pin_memory: true
 
 # Output paths
-save_dir: "../checkpoints"
-log_dir: "../results/logs"
+save_dir: "checkpoints"
+log_dir: "results/logs"
 
 # Device
 device: "auto"  # auto, cuda, cpu
