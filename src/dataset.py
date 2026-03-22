@@ -8,10 +8,7 @@ Cấu trúc thư mục OEM:
 
 File này cung cấp 2 Dataset:
     1. OpenEarthMapDataset: đọc ảnh + label gốc → (img[3,H,W], label[H,W])
-    2. DAEDataset: wrapper thêm nhiễu → (rgb[3,H,W], noisy_onehot[8,H,W], clean_label[H,W])
-
-Luồng dữ liệu tổng thể:
-    split file → find_oem_pairs() → OpenEarthMapDataset → DAEDataset → DataLoader → Model
+    2. RealNoiseDAEDataset: đọc ảnh + pseudo-label thật từ CISC-R → (rgb, pseudo_onehot, clean_label)
 """
 import os
 import numpy as np
@@ -187,105 +184,6 @@ class OpenEarthMapDataset(Dataset):
         img = np.rot90(img, k).copy()
         label = np.rot90(label, k).copy()
         return img, label
-
-class DAEDataset(Dataset):
-    """
-    Wrapper Dataset cho training DAE (Denoising AutoEncoder).
-    
-    Bọc OpenEarthMapDataset, thêm nhiễu nhân tạo vào label để tạo cặp training:
-        Output: (rgb[3,H,W], noisy_onehot[8,H,W], clean_label[H,W])
-          - rgb          : ảnh RGB gốc, float32, [0,1]
-          - noisy_onehot : nhãn nhiễu dạng one-hot, float32
-          - clean_label  : nhãn sạch (ground truth), long [0,7]
-    
-    Ý tưởng: DAE học cách khử nhiễu label — nhận label bị sai + ảnh gốc → dự đoán label đúng.
-    Ứng dụng: Cải thiện chất lượng pseudo-label trong thực tế.
-    """
-    
-    def __init__(self, data_root: str, split: str = 'train',
-                 img_size: int = 512, noise_type: str = 'mixed',
-                 noise_rate_range: Tuple[float, float] = (0.05, 0.30),
-                 augment: bool = True):
-        """
-        Khởi tạo DAEDataset.
-        
-        Input:
-            data_root        (str)            - thư mục gốc chứa data
-            split            (str)            - 'train' hoặc 'val'
-            img_size         (int)            - kích thước ảnh (mặc định 512)
-            noise_type       (str)            - loại nhiễu: 'random_flip', 'boundary',
-                                                'region_swap', 'confusion_based', 'mixed'
-            noise_rate_range (Tuple[float])   - phạm vi tỉ lệ nhiễu, vd (0.05, 0.30) = 5-30% pixel bị đổi
-            augment          (bool)           - bật augmentation (chỉ cho train)
-        """
-        # Dùng OpenEarthMapDataset làm base (tắt augment vì DAE tự augment sau)
-        self.base_dataset = OpenEarthMapDataset(data_root, split, img_size, augment=False)
-        self.noise_type = noise_type
-        self.noise_rate_range = noise_rate_range
-        self.augment = augment and (split == 'train')
-        self.img_size = img_size
-        
-        # Khởi tạo bộ tạo nhiễu với 5 chiến lược khác nhau
-        from noise_generator import NoiseGenerator
-        self.noise_gen = NoiseGenerator(num_classes=NUM_CLASSES)
-        self.noise_funcs = {
-            'random_flip': self.noise_gen.random_flip_noise,       # Đổi ngẫu nhiên class của pixel
-            'boundary': self.noise_gen.boundary_noise,             # Thêm nhiễu ở biên giữa các vùng
-            'region_swap': self.noise_gen.region_swap_noise,       # Hoán đổi class giữa các vùng
-            'confusion_based': self.noise_gen.confusion_based_noise, # Nhiễu dựa trên confusion matrix
-            'mixed': self.noise_gen.mixed_noise,                   # Kết hợp ngẫu nhiên các loại trên
-        }
-    
-    def __len__(self):
-        return len(self.base_dataset)
-    
-    def __getitem__(self, idx):
-        """
-        Lấy 1 sample cho DAE training (Later Fusion format).
-
-        Input:  idx (int) - chỉ số sample
-        Output: (rgb, noisy_onehot, clean_label)
-            rgb          : tensor [3, H, W]  float32 [0,1] - ảnh RGB gốc
-            noisy_onehot : tensor [8, H, W]  float32       - nhãn nhiễu dạng one-hot
-            clean_label  : tensor [H, W]     long [0,7]    - label gốc (ground truth)
-
-        Model nhận rgb và noisy_onehot qua 2 nhánh riêng biệt (dual-branch).
-        """
-        # Bước 1: Lấy ảnh + label sạch từ OpenEarthMapDataset
-        img, clean_label = self.base_dataset[idx]
-        # img: [3, H, W] float, clean_label: [H, W] long
-        
-        clean_np = clean_label.numpy().astype(np.int32)  # Chuyển về numpy để noise_gen xử lý
-        
-        # Bước 2: Random noise rate trong khoảng cho trước (vd: 5%-30%)
-        noise_rate = np.random.uniform(*self.noise_rate_range)
-        
-        # Bước 3: Áp dụng nhiễu lên label sạch → label bị nhiễu
-        if self.noise_type == 'all_random':
-            nt = np.random.choice(list(self.noise_funcs.keys()))
-            noisy_np = self.noise_funcs[nt](clean_np, noise_rate=noise_rate)
-        else:
-            noisy_np = self.noise_funcs[self.noise_type](clean_np, noise_rate=noise_rate)
-        
-        # Bước 4: Chuyển noisy label → one-hot encoding [8, H, W]
-        noisy_onehot = np.zeros((NUM_CLASSES, self.img_size, self.img_size), dtype=np.float32)
-        for c in range(NUM_CLASSES):
-            noisy_onehot[c] = (noisy_np == c).astype(np.float32)
-        noisy_onehot = torch.from_numpy(noisy_onehot)
-        
-        # Bước 5: Augmentation trên tensor (áp dụng đồng bộ cho rgb, noisy_onehot, clean_label)
-        if self.augment:
-            if torch.rand(1) > 0.5:  # Flip ngang (50%)
-                img = torch.flip(img, [2])
-                noisy_onehot = torch.flip(noisy_onehot, [2])
-                clean_label = torch.flip(clean_label.unsqueeze(0), [2]).squeeze(0)
-            if torch.rand(1) > 0.5:  # Flip dọc (50%)
-                img = torch.flip(img, [1])
-                noisy_onehot = torch.flip(noisy_onehot, [1])
-                clean_label = torch.flip(clean_label.unsqueeze(0), [1]).squeeze(0)
-        
-        return img, noisy_onehot, clean_label
-
 
 # ============================================================
 # Real Noise Dataset: dùng pseudo-label thật từ model CISC-R

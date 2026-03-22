@@ -157,9 +157,9 @@ def main():
     Hàm chính điều phối toàn bộ quá trình huấn luyện DAE.
 
     Chức năng theo thứ tự:
-      1. Đọc cấu hình: load file YAML (model, training, noise, loss, ...) qua load_config_from_args().
+      1. Đọc cấu hình: load file YAML (model, training, loss, ...) qua load_config_from_args().
       2. Thiết lập môi trường: seed, device (auto-detect GPU), tạo thư mục lưu checkpoint/log.
-      3. Tạo dataset & dataloader: DAEDataset cho train (có augment) và val (không augment).
+      3. Tạo dataset & dataloader: RealNoiseDAEDataset cho train/val với pseudo-label thật từ CISC-R.
       4. Khởi tạo model: build_model() theo tên model trong config (resnet34, lightweight, effnet, ...).
       5. Thiết lập training:
          - Loss: DAELoss (kết hợp CrossEntropy + Dice + Boundary loss với trọng số từ config).
@@ -231,7 +231,7 @@ def main():
             entity=wandb_cfg.get("entity", None),
             name=exp_name,
             config=cfg_to_flat(cfg),
-            tags=[f"dae", model_name, noise_type],
+            tags=["dae", model_name, "real_pseudo"],
             reinit=True,
         )
         print(f'W&B run: {wandb.run.url}')
@@ -399,7 +399,7 @@ def main():
                 type='model',
                 description=f'{model_name} best checkpoint (mIoU: {best_miou:.4f})',
                 metadata={'model': model_name, 'best_miou': best_miou,
-                          'epoch': epoch, 'noise_type': noise_type}
+                          'epoch': epoch, 'data_source': 'real_pseudo_cisc_r'}
             )
             artifact.add_file(ckpt_path)
             wandb.log_artifact(artifact)
@@ -443,50 +443,47 @@ def main():
                 model.load_state_dict(best_ckpt['model_state'])
             model.eval()
 
-            # Build W&B Table
-            columns = ["sample", "noise_rate", "rgb", "noisy_label", "dae_output",
+            # Build W&B Table with real pseudo-labels
+            columns = ["sample", "rgb", "noisy_label", "dae_output",
                         "ground_truth", "noisy_mIoU", "dae_mIoU", "improvement"]
             table = wandb.Table(columns=columns)
 
-            n_samples = 4
-            for nr in [0.10, 0.20, 0.30]:
-                infer_dataset = DAEDataset(
-                    data_root, split='val', img_size=img_size,
-                    noise_type=noise_type,
-                    noise_rate_range=(nr, nr),
-                    augment=False
+            n_samples = 10
+            infer_dataset = RealNoiseDAEDataset(
+                pseudo_root, data_root=data_root, split='val',
+                img_size=img_size, augment=False
+            )
+            indices = np.random.RandomState(seed).choice(
+                len(infer_dataset), min(n_samples, len(infer_dataset)), replace=False
+            )
+
+            for i, idx in enumerate(indices):
+                rgb_t, noisy_onehot, clean_label = infer_dataset[idx]
+                rgb_inp = rgb_t.unsqueeze(0).to(device)
+                label_inp = noisy_onehot.unsqueeze(0).to(device)
+                with torch.no_grad():
+                    with autocast():
+                        output = model(rgb_inp, label_inp)
+                pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
+
+                rgb_img = rgb_t.permute(1, 2, 0).numpy()
+                rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
+                noisy_label = noisy_onehot.argmax(dim=0).numpy()
+                clean_np = clean_label.numpy()
+
+                noisy_iou = compute_iou(noisy_label, clean_np)
+                dae_iou = compute_iou(pred, clean_np)
+
+                table.add_data(
+                    f"sample_{i}",
+                    wandb.Image(rgb_img),
+                    wandb.Image(_label_to_rgb(noisy_label)),
+                    wandb.Image(_label_to_rgb(pred)),
+                    wandb.Image(_label_to_rgb(clean_np)),
+                    round(noisy_iou["mIoU"], 4),
+                    round(dae_iou["mIoU"], 4),
+                    round(dae_iou["mIoU"] - noisy_iou["mIoU"], 4),
                 )
-                indices = np.random.RandomState(seed).choice(
-                    len(infer_dataset), min(n_samples, len(infer_dataset)), replace=False
-                )
-
-                for i, idx in enumerate(indices):
-                    rgb_t, noisy_onehot, clean_label = infer_dataset[idx]
-                    rgb_inp = rgb_t.unsqueeze(0).to(device)
-                    label_inp = noisy_onehot.unsqueeze(0).to(device)
-                    with torch.no_grad():
-                        with autocast():
-                            output = model(rgb_inp, label_inp)
-                    pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
-
-                    rgb_img = rgb_t.permute(1, 2, 0).numpy()
-                    rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
-                    noisy_label = noisy_onehot.argmax(dim=0).numpy()
-                    clean_np = clean_label.numpy()
-
-                    noisy_iou = compute_iou(noisy_label, clean_np)
-                    dae_iou = compute_iou(pred, clean_np)
-
-                    table.add_data(
-                        f"sample_{i}", f"{nr:.0%}",
-                        wandb.Image(rgb_img),
-                        wandb.Image(_label_to_rgb(noisy_label)),
-                        wandb.Image(_label_to_rgb(pred)),
-                        wandb.Image(_label_to_rgb(clean_np)),
-                        round(noisy_iou["mIoU"], 4),
-                        round(dae_iou["mIoU"], 4),
-                        round(dae_iou["mIoU"] - noisy_iou["mIoU"], 4),
-                    )
 
             wandb.log({"inference_results": table})
             print(f'  Logged inference table ({len(table.data)} rows) to W&B')

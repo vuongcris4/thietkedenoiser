@@ -40,14 +40,12 @@ thietkedenoiser/
 ├── src/
 │   ├── config.py               # Config loader (YAML + CLI overrides)
 │   ├── dae_model.py            # 4 DAE architectures + DAELoss
-│   ├── noise_generator.py      # 5 loại noise + mixed
-│   ├── dataset.py              # DAEDataset với noise injection on-the-fly
-│   ├── train_dae.py            # Training script (hỗ trợ tất cả DAE models)
+│   ├── noise_generator.py      # CLASS_NAMES, compute_iou utility
+│   ├── dataset.py              # RealNoiseDAEDataset (pseudo-labels từ CISC-R)
+│   ├── train_dae.py            # Training script
 │   ├── evaluate_dae.py         # Evaluation metrics
-│   ├── evaluate_noise.py       # Phân tích noise statistics
-│   ├── demo_inference.py       # Demo visualization
-│   ├── plot_eval.py            # Plot kết quả
-│   └── run_eval.py             # Run full evaluation
+│   ├── demo_inference_real.py  # Inference với real pseudo-labels
+│   └── upload_to_wandb_run.py  # Upload kết quả lên W&B
 ├── checkpoints/                # Model weights (Git LFS)
 ├── results/
 │   ├── logs/                   # Training history (JSON)

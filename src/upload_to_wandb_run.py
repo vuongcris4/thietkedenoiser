@@ -4,8 +4,9 @@ Upload inference images (as W&B Table) + checkpoint to an existing W&B run.
 Usage:
     python3 src/upload_to_wandb_run.py \
         --run_id vrylq49n \
-        --checkpoint checkpoints/dae_unet_resnet34_mixed_20260319_022703_best.pth \
+        --checkpoint checkpoints/dae_unet_resnet34_real_20260320_134113_best.pth \
         --model unet_resnet34 \
+        --pseudo_root data/OEM_v2_aDanh \
         --data_root data/OpenEarthMap
 """
 import argparse, os, sys, torch, numpy as np
@@ -18,7 +19,7 @@ import wandb
 
 sys.path.insert(0, os.path.dirname(__file__))
 from dae_model import build_model, NUM_CLASSES
-from dataset import DAEDataset
+from dataset import RealNoiseDAEDataset
 from noise_generator import CLASS_NAMES, compute_iou
 
 COLORS = np.array([
@@ -47,51 +48,48 @@ def make_legend_image():
     return fig
 
 
-def run_inference_table(model, data_root, img_size, noise_type, noise_rates,
+def run_inference_table(model, pseudo_root, data_root, img_size,
                         n_samples, seed, device):
     """Run inference and return a wandb.Table with individual images per row."""
-    columns = ["sample_id", "noise_rate", "rgb", "noisy_label", "dae_output",
+    columns = ["sample_id", "rgb", "noisy_label", "dae_output",
                "ground_truth", "noisy_mIoU", "dae_mIoU", "improvement"]
     table = wandb.Table(columns=columns)
 
-    for nr in noise_rates:
-        dataset = DAEDataset(
-            data_root, split='val', img_size=img_size,
-            noise_type=noise_type,
-            noise_rate_range=(nr, nr),
-            augment=False
+    dataset = RealNoiseDAEDataset(
+        pseudo_root, data_root=data_root, split='val',
+        img_size=img_size, augment=False
+    )
+    indices = np.random.RandomState(seed).choice(
+        len(dataset), min(n_samples, len(dataset)), replace=False
+    )
+
+    for i, idx in enumerate(indices):
+        rgb_t, noisy_onehot, clean_label = dataset[idx]
+        rgb_inp = rgb_t.unsqueeze(0).to(device)
+        label_inp = noisy_onehot.unsqueeze(0).to(device)
+        with torch.no_grad():
+            with autocast():
+                output = model(rgb_inp, label_inp)
+        pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
+
+        rgb_img = rgb_t.permute(1, 2, 0).numpy()
+        rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
+        noisy_label = noisy_onehot.argmax(dim=0).numpy()
+        clean_np = clean_label.numpy()
+
+        noisy_iou = compute_iou(noisy_label, clean_np)
+        dae_iou = compute_iou(pred, clean_np)
+
+        table.add_data(
+            f"sample_{i}",
+            wandb.Image(rgb_img),
+            wandb.Image(label_to_rgb(noisy_label)),
+            wandb.Image(label_to_rgb(pred)),
+            wandb.Image(label_to_rgb(clean_np)),
+            round(noisy_iou["mIoU"], 4),
+            round(dae_iou["mIoU"], 4),
+            round(dae_iou["mIoU"] - noisy_iou["mIoU"], 4),
         )
-        indices = np.random.RandomState(seed).choice(
-            len(dataset), min(n_samples, len(dataset)), replace=False
-        )
-
-        for i, idx in enumerate(indices):
-            rgb_t, noisy_onehot, clean_label = dataset[idx]
-            rgb_inp = rgb_t.unsqueeze(0).to(device)
-            label_inp = noisy_onehot.unsqueeze(0).to(device)
-            with torch.no_grad():
-                with autocast():
-                    output = model(rgb_inp, label_inp)
-            pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
-
-            rgb_img = rgb_t.permute(1, 2, 0).numpy()
-            rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
-            noisy_label = noisy_onehot.argmax(dim=0).numpy()
-            clean_np = clean_label.numpy()
-
-            noisy_iou = compute_iou(noisy_label, clean_np)
-            dae_iou = compute_iou(pred, clean_np)
-
-            table.add_data(
-                f"sample_{i}", f"{nr:.0%}",
-                wandb.Image(rgb_img),
-                wandb.Image(label_to_rgb(noisy_label)),
-                wandb.Image(label_to_rgb(pred)),
-                wandb.Image(label_to_rgb(clean_np)),
-                round(noisy_iou["mIoU"], 4),
-                round(dae_iou["mIoU"], 4),
-                round(dae_iou["mIoU"] - noisy_iou["mIoU"], 4),
-            )
 
     return table
 
@@ -102,12 +100,11 @@ def main():
     parser.add_argument('--checkpoint', required=True, help='Path to checkpoint')
     parser.add_argument('--model', required=True,
                         choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'])
+    parser.add_argument('--pseudo_root', required=True, help='Path to pseudo-label dataset')
     parser.add_argument('--data_root', default='data/OpenEarthMap')
     parser.add_argument('--project', default='thietkedenoiser')
     parser.add_argument('--entity', default='vuongcris4-hcmute')
-    parser.add_argument('--noise_type', default='mixed')
     parser.add_argument('--img_size', type=int, default=512)
-    parser.add_argument('--noise_rates', type=float, nargs='+', default=[0.10, 0.20, 0.30])
     parser.add_argument('--n_samples', type=int, default=4)
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
@@ -149,8 +146,8 @@ def main():
     # Generate inference table
     print('Generating inference table...')
     table = run_inference_table(
-        model, args.data_root, args.img_size, args.noise_type,
-        args.noise_rates, args.n_samples, args.seed, device
+        model, args.pseudo_root, args.data_root, args.img_size,
+        args.n_samples, args.seed, device
     )
     wandb.log({"inference_results": table})
     print(f'  Logged table with {len(table.data)} rows')

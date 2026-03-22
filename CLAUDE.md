@@ -25,11 +25,10 @@ python train_dae.py --config ../configs/dae_conditional.yaml
 python train_dae.py --config ../configs/dae_lightweight.yaml --override training.lr=0.0005
 
 # Inference & visualization
-python demo_inference.py --checkpoint checkpoints/dae_lightweight_..._best.pth
+python demo_inference_real.py --checkpoint checkpoints/dae_lightweight_..._best.pth --pseudo_root data/OEM_v2_aDanh
 
 # Evaluate
-python evaluate_dae.py --checkpoint checkpoints/..._best.pth
-python run_eval.py  # Full evaluation pipeline
+python evaluate_dae.py --checkpoint checkpoints/..._best.pth --pseudo_root data/OEM_v2_aDanh
 ```
 
 ## Architecture Overview
@@ -40,11 +39,12 @@ python run_eval.py  # Full evaluation pipeline
 src/
 ├── config.py           # YAML config loader with inheritance (_base_) and CLI overrides
 ├── dae_model.py        # 4 DAE architectures + DAELoss (CE + Dice + Boundary)
-├── noise_generator.py  # 5 noise types: random_flip, boundary, region_swap, confusion, mixed
-├── dataset.py          # DAEDataset (synthetic noise) + RealNoiseDAEDataset (pseudo-labels)
+├── noise_generator.py  # CLASS_NAMES, compute_iou utility
+├── dataset.py          # OpenEarthMapDataset + RealNoiseDAEDataset (pseudo-labels from CISC-R)
 ├── train_dae.py        # Training loop with AMP, early stopping, W&B logging
 ├── evaluate_dae.py     # Metrics computation (mIoU, per-class IoU)
-└── demo_inference.py   # Visualization: RGB → Noisy → DAE Output → GT
+├── demo_inference_real.py  # Inference with real pseudo-labels
+└── upload_to_wandb_run.py  # Upload results to existing W&B run
 ```
 
 ### Model Architecture (Later Fusion)
@@ -71,17 +71,13 @@ Input: `rgb [B,3,H,W]` + `noisy_label [B,8,H,W]` → Output: `logits [B,8,H,W]`
 Configs use inheritance via `_base_` field:
 ```yaml
 # configs/dae_lightweight.yaml
-_base_: default.yaml  # Inherits data_root, img_size, wandb, etc.
+_base_: default.yaml  # Inherits data_root, img_size, wandb, pseudo_root
 model:
   name: lightweight
 training:
   batch_size: 8
   lr: 0.0001
   epochs: 100
-noise:
-  type: mixed
-  rate_min: 0.05
-  rate_max: 0.30
 ```
 
 CLI overrides use dot notation: `--override training.lr=0.001`
@@ -110,6 +106,6 @@ Total Loss = CE×1.0 + Dice×1.0 + Boundary×0.5
 
 ## Checkpoints & Logs
 
-- Checkpoints: `checkpoints/{model}_{noise}_{timestamp}_best.pth`
+- Checkpoints: `checkpoints/{model}_real_{timestamp}_best.pth`
 - History: `results/logs/{exp}_history.json`
 - W&B: Auto-logs metrics, inference images, checkpoints as artifacts
