@@ -66,16 +66,17 @@ def run_inference_table(model, data_root, img_size, noise_type, noise_rates,
         )
 
         for i, idx in enumerate(indices):
-            dae_input, clean_label = dataset[idx]
-            inp = dae_input.unsqueeze(0).to(device)
+            rgb_t, noisy_onehot, clean_label = dataset[idx]
+            rgb_inp = rgb_t.unsqueeze(0).to(device)
+            label_inp = noisy_onehot.unsqueeze(0).to(device)
             with torch.no_grad():
                 with autocast():
-                    output = model(inp)
+                    output = model(rgb_inp, label_inp)
             pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
 
-            rgb_img = dae_input[:3].permute(1, 2, 0).numpy()
+            rgb_img = rgb_t.permute(1, 2, 0).numpy()
             rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
-            noisy_label = dae_input[3:].argmax(dim=0).numpy()
+            noisy_label = noisy_onehot.argmax(dim=0).numpy()
             clean_np = clean_label.numpy()
 
             noisy_iou = compute_iou(noisy_label, clean_np)

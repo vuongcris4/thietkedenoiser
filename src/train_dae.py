@@ -36,7 +36,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(__file__))
 from config import load_config_from_args, print_config, cfg_to_flat
 from dae_model import build_model, count_params, DAELoss
-from dataset import DAEDataset, NUM_CLASSES
+from dataset import DAEDataset, RealNoiseDAEDataset, NUM_CLASSES
 from noise_generator import compute_iou, CLASS_NAMES
 
 
@@ -67,21 +67,22 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device):
     total_correct = 0
     total_pixels = 0
 
-    for batch_idx, (inputs, targets) in enumerate(loader):
-        inputs = inputs.to(device)
+    for batch_idx, (rgb, noisy_label, targets) in enumerate(loader):
+        rgb = rgb.to(device)
+        noisy_label = noisy_label.to(device)
         targets = targets.to(device)
 
         optimizer.zero_grad()
 
         with autocast():
-            outputs = model(inputs)
+            outputs = model(rgb, noisy_label)
             loss = criterion(outputs, targets)
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
 
-        total_loss += loss.item() * inputs.size(0)
+        total_loss += loss.item() * rgb.size(0)
         pred = outputs.argmax(dim=1)
         total_correct += (pred == targets).sum().item()
         total_pixels += targets.numel()
@@ -121,15 +122,16 @@ def validate(model, loader, criterion, device):
     all_preds = []
     all_targets = []
 
-    for inputs, targets in loader:
-        inputs = inputs.to(device)
+    for rgb, noisy_label, targets in loader:
+        rgb = rgb.to(device)
+        noisy_label = noisy_label.to(device)
         targets = targets.to(device)
 
         with autocast():
-            outputs = model(inputs)
+            outputs = model(rgb, noisy_label)
             loss = criterion(outputs, targets)
 
-        total_loss += loss.item() * inputs.size(0)
+        total_loss += loss.item() * rgb.size(0)
         pred = outputs.argmax(dim=1)
         all_preds.append(pred.cpu().numpy())
         all_targets.append(targets.cpu().numpy())
@@ -179,6 +181,7 @@ def main():
     # Extract config values
     model_name = cfg["model"]["name"]
     data_root = cfg.get("data_root", "../data/OpenEarthMap")
+    pseudo_root = cfg.get("pseudo_root", None)  # Đường dẫn pseudo-labels từ CISC-R
     img_size = cfg.get("img_size", 512)
     seed = cfg.get("seed", 42)
     num_workers = cfg.get("num_workers", 2)
@@ -241,18 +244,34 @@ def main():
         print('W&B disabled or not installed.')
 
     # Data
-    train_dataset = DAEDataset(
-        data_root, split='train', img_size=img_size,
-        noise_type=noise_type,
-        noise_rate_range=(noise_rate_min, noise_rate_max),
-        augment=augment
-    )
-    val_dataset = DAEDataset(
-        data_root, split='val', img_size=img_size,
-        noise_type=noise_type,
-        noise_rate_range=(noise_rate_min, noise_rate_max),
-        augment=False
-    )
+    if pseudo_root and os.path.isdir(pseudo_root):
+        # Dùng pseudo-label thật từ CISC-R
+        # pseudo_root phải có: images/, labels/, train.txt, val.txt
+        # Chạy reorganize_pseudo_dataset.py nếu chưa setup
+        print(f'Using REAL pseudo-labels from: {pseudo_root}')
+        train_dataset = RealNoiseDAEDataset(
+            pseudo_root, data_root=data_root, split='train',
+            img_size=img_size, augment=augment
+        )
+        val_dataset = RealNoiseDAEDataset(
+            pseudo_root, data_root=data_root, split='val',
+            img_size=img_size, augment=False
+        )
+    else:
+        # Fallback: dùng synthetic noise
+        print('Using SYNTHETIC noise (no pseudo_root configured)')
+        train_dataset = DAEDataset(
+            data_root, split='train', img_size=img_size,
+            noise_type=noise_type,
+            noise_rate_range=(noise_rate_min, noise_rate_max),
+            augment=augment
+        )
+        val_dataset = DAEDataset(
+            data_root, split='val', img_size=img_size,
+            noise_type=noise_type,
+            noise_rate_range=(noise_rate_min, noise_rate_max),
+            augment=False
+        )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
                               shuffle=True, num_workers=num_workers,
@@ -261,10 +280,9 @@ def main():
                             shuffle=False, num_workers=num_workers,
                             pin_memory=True)
 
-    # Model
+    # Model (Later Fusion: nhận rgb + label riêng biệt)
     model = build_model(
         model_name,
-        in_channels=cfg["model"].get("in_channels", 11),
         num_classes=cfg["model"].get("num_classes", NUM_CLASSES),
     ).to(device)
     total_p, train_p = count_params(model)
@@ -456,16 +474,17 @@ def main():
                 )
 
                 for i, idx in enumerate(indices):
-                    dae_input, clean_label = infer_dataset[idx]
-                    inp = dae_input.unsqueeze(0).to(device)
+                    rgb_t, noisy_onehot, clean_label = infer_dataset[idx]
+                    rgb_inp = rgb_t.unsqueeze(0).to(device)
+                    label_inp = noisy_onehot.unsqueeze(0).to(device)
                     with torch.no_grad():
                         with autocast():
-                            output = model(inp)
+                            output = model(rgb_inp, label_inp)
                     pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
 
-                    rgb_img = dae_input[:3].permute(1, 2, 0).numpy()
+                    rgb_img = rgb_t.permute(1, 2, 0).numpy()
                     rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
-                    noisy_label = dae_input[3:].argmax(dim=0).numpy()
+                    noisy_label = noisy_onehot.argmax(dim=0).numpy()
                     clean_np = clean_label.numpy()
 
                     noisy_iou = compute_iou(noisy_label, clean_np)

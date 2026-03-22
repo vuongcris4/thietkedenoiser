@@ -36,11 +36,12 @@ def evaluate_model(model, data_root, noise_type, noise_rate, device,
     all_targets = []
     all_noisy_ious = []
     
-    for inputs, targets in loader:
-        inputs = inputs.to(device)
+    for rgb, noisy_label, targets in loader:
+        rgb = rgb.to(device)
+        noisy_label = noisy_label.to(device)
         
         with autocast():
-            outputs = model(inputs)
+            outputs = model(rgb, noisy_label)
         
         pred = outputs.argmax(dim=1).cpu().numpy()
         target = targets.numpy()
@@ -49,9 +50,9 @@ def evaluate_model(model, data_root, noise_type, noise_rate, device,
         all_targets.append(target)
         
         # Also compute noisy input IoU (before DAE)
-        noisy_label = inputs[:, 3:].argmax(dim=1).cpu().numpy()
+        noisy_label_cls = noisy_label.argmax(dim=1).cpu().numpy()
         for b in range(len(target)):
-            noisy_iou = compute_iou(noisy_label[b], target[b])
+            noisy_iou = compute_iou(noisy_label_cls[b], target[b])
             all_noisy_ious.append(noisy_iou['mIoU'])
     
     all_preds = np.concatenate(all_preds)
