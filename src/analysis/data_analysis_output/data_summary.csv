@@ -1,0 +1,66 @@
+=== DATA INPUT ANALYSIS SUMMARY ===
+Analysis of 2189 samples
+
+=== DATASET OVERVIEW ===
+Total samples,2189
+Total pixels (GT),"2,133,250,650"
+Total pixels (Pseudo),"2,133,250,650"
+Image size,1000x1000
+
+=== CLASS DISTRIBUTION (GROUND TRUTH) ===
+Class,Value,Total Pixels,Percentage,Samples Present
+Background,0,"15,350,918",0.72%,634/2189
+Bareland,2,"448,499,524",21.02%,2136/2189
+Rangeland,3,"387,339,101",18.16%,2120/2189
+Developed,4,"140,722,526",6.60%,2048/2189
+Road,5,"397,135,277",18.62%,2159/2189
+Tree,6,"69,051,812",3.24%,1145/2189
+Water,7,"281,328,569",13.19%,977/2189
+Agriculture,8,"353,134,058",16.55%,2115/2189
+Building,9,0,0.00%,0/2189
+
+=== CLASS DISTRIBUTION (PSEUDOLABEL) ===
+Class,Value,Total Pixels,Percentage,Samples Present
+Background,0,"15,150,726",0.71%,295/2189
+Bareland,2,"393,106,158",18.43%,2180/2189
+Rangeland,3,"511,585,847",23.98%,2175/2189
+Developed,4,"122,567,767",5.75%,2165/2189
+Road,5,"412,837,660",19.35%,2173/2189
+Tree,6,"59,875,350",2.81%,1345/2189
+Water,7,"259,625,151",12.17%,1574/2189
+Agriculture,8,"348,920,956",16.36%,2129/2189
+Building,9,0,0.00%,0/2189
+
+=== GT vs PSEUDOLABEL COMPARISON ===
+Class,GT %,Pseudo %,Difference,Bias
+
+Bareland,21.02%,18.43%,-2.60%,UNDER
+Rangeland,18.16%,23.98%,+5.82%,OVER
+Developed,6.60%,5.75%,-0.85%,Balanced
+Road,18.62%,19.35%,+0.74%,Balanced
+Tree,3.24%,2.81%,-0.43%,Balanced
+Water,13.19%,12.17%,-1.02%,UNDER
+Agriculture,16.55%,16.36%,-0.20%,Balanced
+Building,0.00%,0.00%,+0.00%,Balanced
+
+=== PER-SAMPLE STATISTICS ===
+
+=== PER-CLASS STATS ACROSS SAMPLES (GT) ===
+Class,Mean %,Std %,Min %,Max %,Median %
+Bareland,21.17,17.41,0.03,96.05,16.61
+Rangeland,19.34,15.96,0.00,90.27,16.92
+Developed,7.39,5.95,0.00,51.16,6.01
+Road,18.41,16.90,0.00,96.06,13.07
+Tree,5.92,13.23,0.00,97.59,0.72
+Water,27.87,26.30,0.00,97.84,18.89
+Agriculture,17.91,16.08,0.00,99.84,14.75
+
+=== PER-CLASS STATS ACROSS SAMPLES (PSEUDO) ===
+Class,Mean %,Std %,Min %,Max %,Median %
+Bareland,18.15,17.91,0.00,97.32,13.04
+Rangeland,24.61,19.57,0.00,96.86,22.70
+Developed,6.01,5.36,0.00,58.85,4.84
+Road,18.95,18.52,0.00,96.68,12.94
+Tree,4.43,11.48,0.00,97.74,0.38
+Water,16.21,23.38,0.00,96.88,4.54
+Agriculture,17.68,16.10,0.00,81.79,14.16

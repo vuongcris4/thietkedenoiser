@@ -17,16 +17,16 @@ from dae_model import build_model, NUM_CLASSES
 from dataset import RealNoiseDAEDataset
 from noise_generator import CLASS_NAMES, compute_iou
 
-# Color palette for 8 classes
+# Color palette for 8 classes (HEX from dataset spec)
 COLORS = np.array([
-    [128, 0, 0],     # Bareland - dark red
-    [0, 255, 36],    # Rangeland - green
-    [148, 148, 148], # Developed - gray
-    [255, 255, 255], # Road - white
-    [34, 97, 38],    # Tree - dark green
-    [0, 69, 255],    # Water - blue
-    [75, 181, 73],   # Agriculture - light green
-    [222, 31, 7],    # Building - red
+    [128, 0, 0],      # Bareland - #800000
+    [0, 255, 36],     # Rangeland - #00FF24
+    [148, 148, 148],  # Developed space - #949494
+    [255, 255, 255],  # Road - #FFFFFF
+    [34, 97, 38],     # Tree - #226126
+    [0, 69, 255],     # Water - #0045FF
+    [75, 181, 73],    # Agriculture land - #4BB549
+    [222, 31, 7],     # Building - #DE1F07
 ], dtype=np.uint8)
 
 def label_to_rgb(label):
@@ -104,8 +104,8 @@ def main():
 
     # Prepare results table for W&B
     wandb_table = wandb.Table(
-        columns=["sample_id", "rgb", "pseudo_label", "dae_output", "ground_truth",
-                 "pseudo_mIoU", "dae_mIoU", "improvement"]
+        columns=["sample_id", "file_name", "region", "rgb", "pseudo_label", "dae_output", "ground_truth",
+                 "pseudo_mIoU", "dae_mIoU", "improvement", "per_class_iou_pseudo", "per_class_iou_dae"]
     )
 
     fig, axes = plt.subplots(num_samples, 4, figsize=(20, 5*num_samples))
@@ -120,6 +120,12 @@ def main():
 
     for i, idx in enumerate(indices):
         rgb_t, pseudo_onehot, clean_label = dataset[idx]
+
+        # Get file name and region for this sample
+        img_path, pseudo_path, gt_path = dataset.pairs[idx]
+        file_name = os.path.basename(img_path)
+        region = file_name.rsplit('_', 1)[0] if '_' in file_name else 'unknown'
+
         rgb_inp = rgb_t.unsqueeze(0).to(device)
         label_inp = pseudo_onehot.unsqueeze(0).to(device)
 
@@ -140,9 +146,16 @@ def main():
         improvement = dae_iou["mIoU"] - pseudo_iou["mIoU"]
         all_improvements.append(improvement)
 
+        # Format per-class IoU as string
+        def format_per_class_iou(iou_dict):
+            return ', '.join([f"{k}: {v:.3f}" for k, v in iou_dict['per_class_iou'].items()])
+
+        per_class_str_pseudo = format_per_class_iou(pseudo_iou)
+        per_class_str_dae = format_per_class_iou(dae_iou)
+
         # Plot
         axes[i, 0].imshow(rgb_img)
-        axes[i, 0].set_title('RGB Image', fontsize=12)
+        axes[i, 0].set_title(f'RGB Image\n{region}/{file_name}', fontsize=10)
         axes[i, 0].axis('off')
 
         axes[i, 1].imshow(label_to_rgb(pseudo_label))
@@ -160,13 +173,17 @@ def main():
         # Add to W&B table
         wandb_table.add_data(
             f"sample_{i}",
+            file_name,
+            region,
             wandb.Image(rgb_img),
             wandb.Image(label_to_rgb(pseudo_label)),
             wandb.Image(label_to_rgb(pred)),
             wandb.Image(label_to_rgb(clean_np)),
             round(pseudo_iou["mIoU"], 4),
             round(dae_iou["mIoU"], 4),
-            round(improvement, 4)
+            round(improvement, 4),
+            per_class_str_pseudo,
+            per_class_str_dae
         )
 
     # Legend

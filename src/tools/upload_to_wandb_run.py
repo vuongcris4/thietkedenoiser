@@ -21,9 +21,16 @@ from dae_model import build_model, NUM_CLASSES
 from dataset import RealNoiseDAEDataset
 from noise_generator import CLASS_NAMES, compute_iou
 
+# Color palette for 8 classes (HEX from dataset spec)
 COLORS = np.array([
-    [128, 0, 0], [0, 255, 36], [148, 148, 148], [255, 255, 255],
-    [34, 97, 38], [0, 69, 255], [75, 181, 73], [222, 31, 7],
+    [128, 0, 0],      # Bareland - #800000
+    [0, 255, 36],     # Rangeland - #00FF24
+    [148, 148, 148],  # Developed space - #949494
+    [255, 255, 255],  # Road - #FFFFFF
+    [34, 97, 38],     # Tree - #226126
+    [0, 69, 255],     # Water - #0045FF
+    [75, 181, 73],    # Agriculture land - #4BB549
+    [222, 31, 7],     # Building - #DE1F07
 ], dtype=np.uint8)
 
 def label_to_rgb(label):

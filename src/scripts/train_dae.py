@@ -413,8 +413,14 @@ def main():
             import matplotlib.patches as mpatches
 
             COLORS = np.array([
-                [128, 0, 0], [0, 255, 36], [148, 148, 148], [255, 255, 255],
-                [34, 97, 38], [0, 69, 255], [75, 181, 73], [222, 31, 7],
+                [128, 0, 0],      # Bareland - #800000
+                [0, 255, 36],     # Rangeland - #00FF24
+                [148, 148, 148],  # Developed space - #949494
+                [255, 255, 255],  # Road - #FFFFFF
+                [34, 97, 38],     # Tree - #226126
+                [0, 69, 255],     # Water - #0045FF
+                [75, 181, 73],    # Agriculture land - #4BB549
+                [222, 31, 7],     # Building - #DE1F07
             ], dtype=np.uint8)
 
             # Log class legend
@@ -443,9 +449,10 @@ def main():
                 model.load_state_dict(best_ckpt['model_state'])
             model.eval()
 
-            # Build W&B Table with real pseudo-labels
-            columns = ["sample", "rgb", "noisy_label", "dae_output",
-                        "ground_truth", "noisy_mIoU", "dae_mIoU", "improvement"]
+            # Build W&B Table with real pseudo-labels for VAL set
+            columns = ["sample_id", "file_name", "region", "rgb", "noisy_label", "dae_output",
+                        "ground_truth", "noisy_mIoU", "dae_mIoU", "improvement",
+                        "per_class_iou_noisy", "per_class_iou_dae"]
             table = wandb.Table(columns=columns)
 
             n_samples = 10
@@ -459,6 +466,12 @@ def main():
 
             for i, idx in enumerate(indices):
                 rgb_t, noisy_onehot, clean_label = infer_dataset[idx]
+
+                # Get file name and region
+                img_path, _, _ = infer_dataset.pairs[idx]
+                file_name = os.path.basename(img_path)
+                region = file_name.rsplit('_', 1)[0] if '_' in file_name else 'unknown'
+
                 rgb_inp = rgb_t.unsqueeze(0).to(device)
                 label_inp = noisy_onehot.unsqueeze(0).to(device)
                 with torch.no_grad():
@@ -474,8 +487,14 @@ def main():
                 noisy_iou = compute_iou(noisy_label, clean_np)
                 dae_iou = compute_iou(pred, clean_np)
 
+                # Format per-class IoU
+                def format_iou(iou_dict):
+                    return ', '.join([f"{k}: {v:.3f}" for k, v in iou_dict['per_class_iou'].items()])
+
                 table.add_data(
-                    f"sample_{i}",
+                    f"val_{i}",
+                    file_name,
+                    region,
                     wandb.Image(rgb_img),
                     wandb.Image(_label_to_rgb(noisy_label)),
                     wandb.Image(_label_to_rgb(pred)),
@@ -483,10 +502,86 @@ def main():
                     round(noisy_iou["mIoU"], 4),
                     round(dae_iou["mIoU"], 4),
                     round(dae_iou["mIoU"] - noisy_iou["mIoU"], 4),
+                    format_iou(noisy_iou),
+                    format_iou(dae_iou),
                 )
 
-            wandb.log({"inference_results": table})
-            print(f'  Logged inference table ({len(table.data)} rows) to W&B')
+            wandb.log({"inference_results_val": table})
+            print(f'  Logged val inference table ({len(table.data)} rows) to W&B')
+
+            # === TEST SET INFERENCE ===
+            print('Running inference on TEST set...')
+            test_columns = ["sample_id", "file_name", "region", "rgb", "noisy_label", "dae_output",
+                            "ground_truth", "noisy_mIoU", "dae_mIoU", "improvement",
+                            "per_class_iou_noisy", "per_class_iou_dae"]
+            test_table = wandb.Table(columns=test_columns)
+
+            try:
+                test_dataset = RealNoiseDAEDataset(
+                    pseudo_root, split='test',
+                    img_size=img_size, augment=False
+                )
+                test_n_samples = 15
+                test_indices = np.random.RandomState(seed + 1).choice(
+                    len(test_dataset), min(test_n_samples, len(test_dataset)), replace=False
+                )
+
+                for i, idx in enumerate(test_indices):
+                    rgb_t, noisy_onehot, clean_label = test_dataset[idx]
+
+                    # Get file name and region
+                    img_path, _, _ = test_dataset.pairs[idx]
+                    file_name = os.path.basename(img_path)
+                    region = file_name.rsplit('_', 1)[0] if '_' in file_name else 'unknown'
+
+                    rgb_inp = rgb_t.unsqueeze(0).to(device)
+                    label_inp = noisy_onehot.unsqueeze(0).to(device)
+                    with torch.no_grad():
+                        with autocast():
+                            output = model(rgb_inp, label_inp)
+                    pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
+
+                    rgb_img = rgb_t.permute(1, 2, 0).numpy()
+                    rgb_img = ((rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6) * 255).astype(np.uint8)
+                    noisy_label = noisy_onehot.argmax(dim=0).numpy()
+                    clean_np = clean_label.numpy()
+
+                    noisy_iou = compute_iou(noisy_label, clean_np)
+                    dae_iou = compute_iou(pred, clean_np)
+
+                    def format_iou(iou_dict):
+                        return ', '.join([f"{k}: {v:.3f}" for k, v in iou_dict['per_class_iou'].items()])
+
+                    test_table.add_data(
+                        f"test_{i}",
+                        file_name,
+                        region,
+                        wandb.Image(rgb_img),
+                        wandb.Image(_label_to_rgb(noisy_label)),
+                        wandb.Image(_label_to_rgb(pred)),
+                        wandb.Image(_label_to_rgb(clean_np)),
+                        round(noisy_iou["mIoU"], 4),
+                        round(dae_iou["mIoU"], 4),
+                        round(dae_iou["mIoU"] - noisy_iou["mIoU"], 4),
+                        format_iou(noisy_iou),
+                        format_iou(dae_iou),
+                    )
+
+                wandb.log({"inference_results_test": test_table})
+                print(f'  Logged test inference table ({len(test_table.data)} rows) to W&B')
+
+                # Aggregate test metrics
+                if len(test_table.data) > 0:
+                    test_improvements = [row[9] for row in test_table.data]
+                    test_mean_improvement = np.mean(test_improvements)
+                    test_std_improvement = np.std(test_improvements)
+                    wandb.log({
+                        "test/mean_improvement": test_mean_improvement,
+                        "test/std_improvement": test_std_improvement,
+                    })
+                    print(f'  Test mean improvement: {test_mean_improvement:.4f} (+/- {test_std_improvement:.4f})')
+            except Exception as e:
+                print(f'  Warning: test inference failed: {e}')
 
         except Exception as e:
             print(f'  Warning: inference visualization failed: {e}')

@@ -16,19 +16,19 @@ pip install segmentation-models-pytorch opencv-python matplotlib pyyaml tqdm
 
 # Train DAE models
 cd src/
-python train_dae.py --config ../configs/dae_lightweight.yaml  # Best model (97.78% mIoU)
-python train_dae.py --config ../configs/dae_resnet34.yaml
-python train_dae.py --config ../configs/dae_effnet.yaml
-python train_dae.py --config ../configs/dae_conditional.yaml
+python scripts/train_dae.py --config ../configs/dae_lightweight.yaml  # Best model (97.78% mIoU)
+python scripts/train_dae.py --config ../configs/dae_resnet34.yaml
+python scripts/train_dae.py --config ../configs/dae_effnet.yaml
+python scripts/train_dae.py --config ../configs/dae_conditional.yaml
 
 # Override config from CLI
-python train_dae.py --config ../configs/dae_lightweight.yaml --override training.lr=0.0005
+python scripts/train_dae.py --config ../configs/dae_lightweight.yaml --override training.lr=0.0005
 
 # Inference & visualization
-python demo_inference_real.py --checkpoint checkpoints/dae_lightweight_..._best.pth --pseudo_root data/OEM_v2_aDanh
+python scripts/demo_inference_real.py --checkpoint checkpoints/dae_lightweight_..._best.pth --pseudo_root data/OEM_v2_aDanh
 
 # Evaluate
-python evaluate_dae.py --checkpoint checkpoints/..._best.pth --pseudo_root data/OEM_v2_aDanh
+python scripts/evaluate_dae.py --checkpoint checkpoints/..._best.pth --pseudo_root data/OEM_v2_aDanh
 ```
 
 ## Architecture Overview
@@ -37,14 +37,24 @@ python evaluate_dae.py --checkpoint checkpoints/..._best.pth --pseudo_root data/
 
 ```
 src/
-├── config.py           # YAML config loader with inheritance (_base_) and CLI overrides
-├── dae_model.py        # 4 DAE architectures + DAELoss (CE + Dice + Boundary)
-├── noise_generator.py  # CLASS_NAMES, compute_iou utility
-├── dataset.py          # OpenEarthMapDataset + RealNoiseDAEDataset (pseudo-labels from CISC-R)
-├── train_dae.py        # Training loop with AMP, early stopping, W&B logging
-├── evaluate_dae.py     # Metrics computation (mIoU, per-class IoU)
-├── demo_inference_real.py  # Inference with real pseudo-labels
-└── upload_to_wandb_run.py  # Upload results to existing W&B run
+├── core/               # Core components
+│   ├── config.py       # YAML config loader with inheritance (_base_) and CLI overrides
+│   ├── dae_model.py    # 4 DAE architectures + DAELoss (CE + Dice + Boundary)
+│   ├── dataset.py      # OpenEarthMapDataset + RealNoiseDAEDataset (pseudo-labels from CISC-R)
+│   └── noise_generator.py  # CLASS_NAMES, compute_iou utility
+├── scripts/            # Training/evaluation/inference scripts
+│   ├── train_dae.py    # Training loop with AMP, early stopping, W&B logging
+│   ├── evaluate_dae.py # Metrics computation (mIoU, per-class IoU)
+│   └── demo_inference_real.py  # Inference with real pseudo-labels
+├── tools/              # Utility tools
+│   ├── upload_to_wandb_run.py  # Upload results to existing W&B run
+│   ├── reorganize_pseudo_dataset.py  # Reorganize pseudo-label dataset
+│   └── verify_pseudolabels.py    # Verify pseudo-label quality
+└── analysis/           # Analysis & visualization (not used in train/val/test)
+    ├── analysis_output/
+    ├── data_analysis_output/
+    ├── data_input_analysis.py
+    └── full_analysis.py
 ```
 
 ### Model Architecture (Later Fusion)

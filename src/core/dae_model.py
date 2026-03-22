@@ -568,7 +568,7 @@ class DAELoss(nn.Module):
         self.dice_weight = dice_weight
         self.boundary_weight = boundary_weight
         self.num_classes = num_classes
-        self.ce = nn.CrossEntropyLoss()
+        self.ce = nn.CrossEntropyLoss(ignore_index=255)
 
     def forward(self, pred, target):
         ce_loss = self.ce(pred, target)
@@ -582,22 +582,35 @@ class DAELoss(nn.Module):
         return loss
 
     def _dice_loss(self, pred, target):
-        pred_soft = F.softmax(pred, dim=1)
-        target_onehot = F.one_hot(target, self.num_classes).permute(0, 3, 1, 2).float()
+        # Mask pixels background (255) để không tính Dice loss
+        valid_mask = (target != 255).float().unsqueeze(1)  # [B, 1, H, W]
+
+        pred_soft = F.softmax(pred, dim=1) * valid_mask
+        target_onehot = F.one_hot(target.clamp(0, self.num_classes - 1), self.num_classes).permute(0, 3, 1, 2).float()
+        target_onehot = target_onehot * valid_mask
+
         intersection = (pred_soft * target_onehot).sum(dim=(2, 3))
         union = pred_soft.sum(dim=(2, 3)) + target_onehot.sum(dim=(2, 3))
         dice = (2 * intersection + 1e-6) / (union + 1e-6)
         return 1 - dice.mean()
 
     def _boundary_loss(self, pred, target):
-        target_float = target.float().unsqueeze(1)
+        # Mask pixels background (255) để không tính boundary loss
+        valid_mask = (target != 255).float()
+
+        # Clamp target để tránh IndexError, sau đó mask bằng valid_mask
+        target_clamped = target.clamp(0, self.num_classes - 1)
+
+        target_float = target_clamped.float().unsqueeze(1)
         sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]],
                                dtype=torch.float32, device=target.device).view(1, 1, 3, 3)
         sobel_y = sobel_x.transpose(2, 3)
         gx = F.conv2d(target_float, sobel_x, padding=1)
         gy = F.conv2d(target_float, sobel_y, padding=1)
-        boundary = (gx.abs() + gy.abs() > 0).float().squeeze(1)
-        ce_per_pixel = F.cross_entropy(pred, target, reduction='none')
+        boundary = (gx.abs() + gy.abs() > 0).float().squeeze(1) * valid_mask
+
+        # Tính CE per pixel, mask background
+        ce_per_pixel = F.cross_entropy(pred, target_clamped, reduction='none') * valid_mask
         boundary_ce = (ce_per_pixel * boundary).sum() / (boundary.sum() + 1e-6)
         return boundary_ce
 

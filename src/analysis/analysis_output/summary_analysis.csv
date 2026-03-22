@@ -1,0 +1,61 @@
+=== PER-CLASS ANALYSIS SUMMARY ===
+
+Class,Avg IoU,Avg GT %,Avg Pseudo %,Diff %,Samples with class
+
+Bareland,34.88%,20.66%,18.08%,-2.58%,2184/2189
+Rangeland,36.50%,18.73%,24.45%,+5.72%,2180/2189
+Developed,41.35%,6.91%,5.94%,-0.97%,2169/2189
+Road,53.51%,18.16%,18.82%,+0.66%,2178/2189
+Tree,13.92%,3.10%,2.72%,-0.37%,1660/2189
+Water,30.58%,12.44%,11.66%,-0.78%,1608/2189
+Agriculture,63.40%,17.30%,17.19%,-0.11%,2153/2189
+Building,0.00%,0.00%,0.00%,+0.00%,0/2189
+
+=== OVERALL STATISTICS ===
+
+Metric,Value
+Total samples,2189
+Total pixels,"2,133,250,650"
+Mean mIoU,40.61%
+Std mIoU,10.35%
+Min mIoU,5.20%
+Max mIoU,77.62%
+Mean Pixel Acc,69.68%
+Std Pixel Acc,12.84%
+
+=== TOP 10 SAMPLES BY mIoU ===
+Sample,mIoU,Pixel Acc
+wielkopolskie_12.tif,77.62%,89.81%
+baybay_63.tif,70.01%,81.48%
+austin_21.tif,69.69%,83.32%
+koeln_43.tif,69.16%,84.37%
+baybay_61.tif,68.37%,86.02%
+dortmund_35.tif,68.14%,84.18%
+bielefeld_46.tif,67.20%,88.67%
+muenster_50.tif,66.81%,83.23%
+mahe_27.tif,66.78%,80.56%
+muenster_3.tif,66.77%,86.13%
+
+=== BOTTOM 10 SAMPLES BY mIoU ===
+Sample,mIoU,Pixel Acc
+chiclayo_20.tif,5.20%,91.00%
+chiclayo_48.tif,5.22%,23.43%
+lima_12.tif,5.44%,9.98%
+chincha_39.tif,6.04%,19.61%
+khartoum_21.tif,7.17%,32.73%
+lima_13.tif,7.60%,22.90%
+tyrolw_33.tif,8.15%,1.57%
+lambayeque_24.tif,9.12%,33.45%
+chiclayo_35.tif,9.28%,2.44%
+accra_69.tif,10.56%,28.51%
+
+=== CLASS BIAS ANALYSIS ===
+Class,Bias Direction,Avg GT %,Avg Pseudo %,Bias Magnitude
+Bareland,UNDER-predicted,20.66%,18.08%,-2.58%
+Rangeland,OVER-predicted,18.73%,24.45%,+5.72%
+Developed,Balanced,6.91%,5.94%,-0.97%
+Road,Balanced,18.16%,18.82%,+0.66%
+Tree,Balanced,3.10%,2.72%,-0.37%
+Water,Balanced,12.44%,11.66%,-0.78%
+Agriculture,Balanced,17.30%,17.19%,-0.11%
+Building,Balanced,0.00%,0.00%,+0.00%
