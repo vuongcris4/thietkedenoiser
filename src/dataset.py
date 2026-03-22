@@ -191,15 +191,58 @@ class OpenEarthMapDataset(Dataset):
 #
 # Cấu trúc folder pseudo_root (vd: OEM_v2_aDanh/):
 #   pseudo_root/
-#   ├── images/       ← ảnh RGB (symlinks từ OpenEarthMap)
-#   ├── pseudolabels/ ← pseudo-labels từ CISC-R (noisy)
-#   ├── labels/       ← ground truth từ OpenEarthMap (clean)
-#   ├── train.txt     ← danh sách file train
-#   ├── val.txt       ← danh sách file val
-#   └── test.txt      ← danh sách file test
+#   ├── images/          ← ảnh RGB (symlinks từ OpenEarthMap)
+#   ├── pseudolabels/    ← pseudo-labels từ CISC-R (noisy)
+#   ├── labels/          ← ground truth từ OpenEarthMap (clean)
 #
-# Để tạo cấu trúc này, chạy: python reorganize_pseudo_dataset.py
+# Tự động chia train/val/test theo tỷ lệ 80/10/10 nếu không có split files.
 # ============================================================
+
+
+def get_split_files(pseudo_root: str, split: str = 'train') -> str:
+    """
+    Lấy path đến file split (train.txt, val.txt, test.txt).
+    Nếu không tồn tại, tự động tạo từ danh sách files trong pseudolabels/.
+    """
+    split_file = os.path.join(pseudo_root, f'{split}.txt')
+
+    # Nếu đã có file split → dùng luôn
+    if os.path.exists(split_file):
+        return split_file
+
+    # Tự động tạo split files
+    pseudo_dir = os.path.join(pseudo_root, 'pseudolabels')
+    if not os.path.isdir(pseudo_dir):
+        raise FileNotFoundError(f'Pseudo-labels folder not found: {pseudo_dir}')
+
+    # Lấy danh sách file .tif
+    files = sorted([f for f in os.listdir(pseudo_dir) if f.endswith('.tif')])
+
+    if not files:
+        raise FileNotFoundError(f'No .tif files found in {pseudo_dir}')
+
+    # Auto-create split files (80/10/10)
+    import random
+    random.seed(42)
+    random.shuffle(files)
+
+    n = len(files)
+    n_train = int(n * 0.8)
+    n_val = int(n * 0.1)
+
+    splits = {
+        'train.txt': files[:n_train],
+        'val.txt': files[n_train:n_train + n_val],
+        'test.txt': files[n_train + n_val:],
+    }
+
+    for fname, file_list in splits.items():
+        path = os.path.join(pseudo_root, fname)
+        with open(path, 'w') as f:
+            f.write('\n'.join(file_list) + '\n')
+        print(f'Created {fname}: {len(file_list)} files')
+
+    return os.path.join(pseudo_root, f'{split}.txt')
 
 
 def find_pseudo_pairs(pseudo_root: str,
@@ -248,7 +291,7 @@ class RealNoiseDAEDataset(Dataset):
                  augment: bool = True):
         """
         Input:
-            pseudo_root (str) - thư mục dataset (chứa images/, pseudolabels/, labels/, split files)
+            pseudo_root (str) - thư mục dataset (chứa images/, pseudolabels/, labels/)
             data_root   (str) - không còn dùng (ground truth đã có sẵn trong labels/)
             split       (str) - 'train', 'val', 'test'
             img_size    (int) - kích thước resize
@@ -257,12 +300,8 @@ class RealNoiseDAEDataset(Dataset):
         self.img_size = img_size
         self.augment = augment and (split == 'train')
 
-        split_file = os.path.join(pseudo_root, f'{split}.txt')
-        if not os.path.exists(split_file):
-            raise FileNotFoundError(
-                f'Split file not found: {split_file}\n'
-                f'Chạy "python reorganize_pseudo_dataset.py" để tạo.'
-            )
+        # Tự động tạo split files nếu chưa có
+        split_file = get_split_files(pseudo_root, split)
 
         self.pairs = find_pseudo_pairs(pseudo_root, split_file)
         print(f'RealNoiseDAEDataset {split}: {len(self.pairs)} samples')

@@ -11,10 +11,10 @@ Thành cấu trúc chuẩn:
     OEM_v2_aDanh/
     ├── images/       ← symlinks tới OpenEarthMap/{region}/images/{fn}
     ├── pseudolabels/ ← pseudo-labels từ CISC-R (move từ root)
-    ├── labels/       ← ground truth từ OpenEarthMap (copy)
-    ├── train.txt     ← 80% files
-    ├── val.txt       ← 10% files
-    └── test.txt      ← 10% files
+    └── labels/       ← ground truth từ OpenEarthMap (copy)
+
+Ghi chú: Split files (train.txt, val.txt, test.txt) sẽ tự động tạo
+khi load dataset theo tỷ lệ 80/10/10.
 
 Usage:
     python reorganize_pseudo_dataset.py
@@ -22,15 +22,12 @@ Usage:
 import os
 import sys
 import shutil
-import random
 
 # ============================================================
 # CONFIG
 # ============================================================
 OEM_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'OpenEarthMap'))
 PSEUDO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'OEM_v2_aDanh'))
-SPLIT_SEED = 42
-SPLIT_RATIO = (0.8, 0.1, 0.1)  # train/val/test
 
 
 def _get_region(filename):
@@ -104,30 +101,8 @@ def main():
 
     print(f'\nValid files: {len(valid_files)} (skipped {skipped} without OEM image)')
 
-    # === 4. Tạo split files ===
-    random.seed(SPLIT_SEED)
-    random.shuffle(valid_files)
-
-    n = len(valid_files)
-    n_train = int(n * SPLIT_RATIO[0])
-    n_val = int(n * SPLIT_RATIO[1])
-
-    splits = {
-        'train.txt': sorted(valid_files[:n_train]),
-        'val.txt': sorted(valid_files[n_train:n_train + n_val]),
-        'test.txt': sorted(valid_files[n_train + n_val:]),
-    }
-
-    for fname, files in splits.items():
-        path = os.path.join(PSEUDO_ROOT, fname)
-        with open(path, 'w') as f:
-            f.write('\n'.join(files) + '\n')
-        print(f'  {fname}: {len(files)} files')
-
     print(f'\n✅ Done! Dataset reorganized at: {PSEUDO_ROOT}')
-    print(f'   train={len(splits["train.txt"])}, '
-          f'val={len(splits["val.txt"])}, '
-          f'test={len(splits["test.txt"])}')
+    print(f'   Split files will be auto-created on first dataset load (80/10/10)')
 
 
 if __name__ == '__main__':
