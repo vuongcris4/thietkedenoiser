@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
 from dae_model import build_model, NUM_CLASSES
 from dataset import RealNoiseDAEDataset
 from noise_generator import CLASS_NAMES, compute_iou
