@@ -96,7 +96,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 ### Naming Conventions
 - **Variables/functions**: `snake_case` (`noise_rate`, `load_config`)
-- **Classes**: `PascalCase` (`NoiseGenerator`, `ConvBlock`, `DAEDataset`)
+- **Classes**: `PascalCase` (`NoiseGenerator`, `ConvBlock`, `RealNoiseDAEDataset`)
 - **Constants**: `UPPER_CASE` (`NUM_CLASSES`, `CLASS_NAMES`)
 - **Private helpers**: Prefix with underscore (`_get_region`, `_set_nested`, `_deep_merge`)
 
