@@ -1,6 +1,6 @@
 # 🛰️ Pseudo-label Denoiser for Satellite Image Segmentation
 
-> Denoising AutoEncoder (DAE) và Conditional Diffusion models để tinh chỉnh pseudo-labels nhiễu trong bài toán semantic segmentation ảnh vệ tinh, sử dụng dataset OpenEarthMap.
+> Denoising AutoEncoder (DAE) models để tinh chỉnh pseudo-labels nhiễu trong bài toán semantic segmentation ảnh vệ tinh, sử dụng dataset OpenEarthMap.
 
 ---
 
@@ -21,8 +21,7 @@ Trong pipeline semi-supervised semantic segmentation, pseudo-labels từ model t
 | 1 | UNet-ResNet34 | 24.46M | UNet + pretrained ResNet34 encoder | 94.88% | 58 (early stop) |
 | 2 | UNet-EfficientNet-B4 | 20.23M | UNet + pretrained EfficientNet-B4 encoder | 96.00% | 95 (early stop) |
 | 3 | **Lightweight DAE** ⭐ | **12.82M** | Custom U-Net (tự thiết kế) | **97.78%** | 89/100 |
-| 4 | Conditional Diffusion | 22.25M | U-Net + time embedding (DDPM) | 23.81% | 50 |
-| 5 | Conditional DAE | 39.10M | Dual Encoder + Channel Attention | 89.22% | 90/100 |
+| 4 | Conditional DAE | 39.10M | Dual Encoder + Channel Attention | 89.22% | 90/100 |
 
 > **Kết luận:** Lightweight DAE nhỏ nhất nhưng đạt kết quả tốt nhất. Pretrained encoders không giúp ích vì input domain (11 channels) khác ImageNet (3 channels).
 
@@ -37,16 +36,13 @@ thietkedenoiser/
 │   ├── dae_resnet34.yaml       # UNet-ResNet34
 │   ├── dae_effnet.yaml         # UNet-EfficientNet-B4
 │   ├── dae_lightweight.yaml    # Lightweight DAE
-│   ├── dae_conditional.yaml    # Conditional DAE (Dual Encoder)
-│   └── diffusion.yaml          # Conditional Diffusion
+│   └── dae_conditional.yaml    # Conditional DAE (Dual Encoder)
 ├── src/
 │   ├── config.py               # Config loader (YAML + CLI overrides)
 │   ├── dae_model.py            # 4 DAE architectures + DAELoss
-│   ├── diffusion_denoiser.py   # Conditional Diffusion model
-│   ├── noise_generator.py      # 4 loại noise + mixed
+│   ├── noise_generator.py      # 5 loại noise + mixed
 │   ├── dataset.py              # DAEDataset với noise injection on-the-fly
 │   ├── train_dae.py            # Training script (hỗ trợ tất cả DAE models)
-│   ├── train_diffusion.py      # Diffusion training
 │   ├── evaluate_dae.py         # Evaluation metrics
 │   ├── evaluate_noise.py       # Phân tích noise statistics
 │   ├── demo_inference.py       # Demo visualization
@@ -118,9 +114,6 @@ python train_dae.py --config ../configs/dae_effnet.yaml
 
 # Conditional DAE (Dual Encoder + Attention)
 python train_dae.py --config ../configs/dae_conditional.yaml
-
-# Conditional Diffusion
-python train_diffusion.py --config ../configs/diffusion.yaml
 ```
 
 ### Override config từ CLI
@@ -208,8 +201,7 @@ Tree:     87.1%  |  Water:     86.7%  |  Agriculture: 91.8% |  Building: 92.5%
 1. **Model nhỏ > model lớn** — Lightweight DAE (12.82M) thắng tất cả models lớn hơn
 2. **Pretrained không giúp ích** — Input 11 channels khác ImageNet, pretrained weights bị mismatch
 3. **Dual-encoder phức tạp hóa** — Tách RGB/label encoder (39.1M) kém hơn single-encoder (12.82M)
-4. **Diffusion chưa hiệu quả** — 50 epochs vẫn không hội tụ, approach phức tạp hơn nhiều so với DAE
-5. **CE + Dice + Boundary loss** — Kết hợp 3 loss giúp bảo toàn ranh giới class tốt
+4. **CE + Dice + Boundary loss** — Kết hợp 3 loss giúp bảo toàn ranh giới class tốt
 
 ---
 

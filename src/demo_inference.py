@@ -84,21 +84,34 @@ def main():
 
     # Load model
     model = build_model(args.model).to(device)
-    ckpt = torch.load(args.checkpoint, map_location=device)
+    ckpt = torch.load(args.checkpoint, map_location=device, weights_only=False)
     model.load_state_dict(ckpt['model_state'])
     model.eval()
     print(f'Loaded {args.model} DAE (best mIoU: {ckpt.get("best_miou", "?")})')
 
-    for nr in args.noise_rates:
+    # Select samples once from base dataset
+    base_dataset_for_indices = DAEDataset(
+        args.data_root, split=args.split, img_size=args.img_size,
+        noise_type=args.noise_type,
+        noise_rate_range=(0.05, 0.30),
+        augment=False
+    )
+
+    # Choose sample indices once
+    all_indices = np.random.RandomState(args.seed).choice(
+        len(base_dataset_for_indices), max(args.num_samples, 12), replace=False
+    )
+
+    for nr_idx, nr in enumerate(args.noise_rates):
+        # Create dataset with specific noise rate
         dataset = DAEDataset(
             args.data_root, split=args.split, img_size=args.img_size,
             noise_type=args.noise_type,
             noise_rate_range=(nr, nr),
             augment=False
         )
-        indices = np.random.RandomState(args.seed).choice(
-            len(dataset), args.num_samples, replace=False
-        )
+        # Use same indices for all noise rates to compare same samples
+        indices = all_indices[:args.num_samples]
 
         fig, axes = plt.subplots(args.num_samples, 4, figsize=(20, 5*args.num_samples))
         fig.suptitle(
@@ -107,18 +120,19 @@ def main():
         )
 
         for i, idx in enumerate(indices):
-            dae_input, clean_label = dataset[idx]
-            inp = dae_input.unsqueeze(0).to(device)
+            rgb_t, noisy_onehot, clean_label = dataset[idx]
+            rgb_inp = rgb_t.unsqueeze(0).to(device)
+            label_inp = noisy_onehot.unsqueeze(0).to(device)
 
             with torch.no_grad():
                 with autocast():
-                    output = model(inp)
+                    output = model(rgb_inp, label_inp)
             pred = output.argmax(dim=1).squeeze(0).cpu().numpy()
 
             # Extract components
-            rgb_img = dae_input[:3].permute(1, 2, 0).numpy()
+            rgb_img = rgb_t.permute(1, 2, 0).numpy()
             rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min() + 1e-6)
-            noisy_label = dae_input[3:].argmax(dim=0).numpy()
+            noisy_label = noisy_onehot.argmax(dim=0).numpy()
             clean_np = clean_label.numpy()
 
             # Compute IoU

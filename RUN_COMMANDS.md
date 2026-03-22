@@ -94,9 +94,9 @@ python3 src/evaluate_noise.py \
 
 ---
 
-## Phase 3: Huấn Luyện DAE (3 Mô Hình)
+## Phase 3: Huấn Luyện DAE (4 Mô Hình)
 
-### 3.1 Chạy toàn bộ 3 DAE + 1 Diffusion (script tự động)
+### 3.1 Chạy toàn bộ 3 DAE (script tự động)
 
 ```bash
 cd ~/thietkedenoiser
@@ -185,55 +185,9 @@ python3 src/train_dae.py \
 
 ---
 
-## Phase 4: Huấn Luyện Diffusion Model
+## Phase 4: Đánh Giá Mô Hình
 
-### 4.1 Train Conditional Diffusion Denoiser (22.2M params)
-
-```bash
-python3 src/train_diffusion.py \
-    --data_root data/OpenEarthMap \
-    --img_size 512 \
-    --batch_size 4 \
-    --epochs 50 \
-    --T 1000 \
-    --base_dim 64 \
-    --patience 20 \
-    --val_every 5 \
-    --denoise_steps 50
-```
-
-| Config | Value |
-|--------|-------|
-| T (timesteps) | 1000 |
-| Base dim | 64 |
-| Dim mults | (1, 2, 4, 8) |
-| β schedule | linear 0.0001 → 0.02 |
-| Noise rate | Mixed (10-25%) |
-| Optimizer | AdamW, lr=2e-4, wd=1e-4 |
-| Scheduler | CosineAnnealing |
-| Denoise steps (inference) | 50 (DDPM) |
-
-> **Checkpoint:** `checkpoints/diffusion_T1000_dim64_20260209_060507_best.pth`
-> **Training log:** `results/train_diffusion_50ep.log` (~128 MB)
-> **History:** `results/logs/diffusion_T1000_dim64_20260209_060507_history.json`
-
-### 4.2 Các lần resume training (gặp lỗi, phải restart)
-
-```bash
-# Log các lần resume:
-# results/logs/diffusion_restart_20260208_021448.log
-# results/logs/diffusion_restart_v2.log
-# results/logs/diffusion_resume.log
-# results/logs/diffusion_resume2.log
-# results/logs/diffusion_resume_e20.log
-# results/logs/diffusion_resume_e20_v2.log
-```
-
----
-
-## Phase 5: Đánh Giá Mô Hình
-
-### 5.1 Đánh giá DAE (Lightweight — Best model)
+### 4.1 Đánh giá DAE (Lightweight — Best model)
 
 ```bash
 cd ~/thietkedenoiser
@@ -250,28 +204,7 @@ python3 src/evaluate_dae.py \
 # Đánh giá 5 noise types × 5 noise rates = 25 combinations
 ```
 
-### 5.2 Đánh giá Diffusion Model
-
-```bash
-python3 src/evaluate_diffusion.py \
-    --checkpoint checkpoints/diffusion_T1000_dim64_20260209_060507_best.pth \
-    --data_root data/OpenEarthMap_wo_xBD \
-    --output_dir results/metrics \
-    --img_size 512 \
-    --batch_size 4 \
-    --denoise_steps 50 \
-    --T 1000 \
-    --base_dim 64 \
-    > results/eval_diffusion.log 2>&1
-# Output: results/metrics/diffusion_evaluation.json
-# Đánh giá 5 noise types × 5 noise rates = 25 combinations
-```
-
----
-
-## Phase 6: Visualization & Báo Cáo
-
-### 6.1 Demo inference — Tạo ảnh so sánh
+### 4.2 Demo inference — Tạo ảnh so sánh
 
 ```bash
 # Trên tập val
@@ -302,89 +235,25 @@ python3 src/demo_inference.py \
 # Output: results/visualizations/*/demo_noise_*pct.png
 ```
 
-### 6.2 Tạo biểu đồ báo cáo
+### 4.2 Tạo biểu đồ báo cáo
 
 ```bash
-# Phiên bản 1
 python3 src/plot_report.py
 # Output: results/report_charts/fig1_dae_training_curves.png
-#         results/report_charts/fig2_diffusion_training.png
-#         results/report_charts/fig3_perclass_iou.png
-#         results/report_charts/fig4_model_comparison.png
-#         results/report_charts/fig5_training_time.png
-#         results/report_charts/fig6_lr_schedule.png
-
-# Phiên bản 2 (cải tiến, thêm diffusion eval chart)
-python3 src/plot_report_v2.py
-# Output thêm: results/report_charts/fig7_diffusion_eval.png
+#         results/report_charts/fig2_perclass_iou.png
+#         results/report_charts/fig3_model_comparison.png
+#         results/report_charts/fig4_training_time.png
+#         results/report_charts/fig5_lr_schedule.png
 ```
 
 ---
 
-## Phase 7: Latent Diffusion Model (Bài Báo Gốc — So Sánh)
-
-> Đây là Latent Diffusion Model theo kiến trúc gốc của CompVis, chạy trên repo riêng (`/home/ubuntu/vuongvy/latent-diffusion`), dùng conda env `ldm`.
-
-### 7.1 Setup Latent Diffusion
-
-```bash
-cd /home/ubuntu/vuongvy
-git clone https://github.com/CompVis/latent-diffusion.git
-cd latent-diffusion
-
-# Tạo conda env
-source ~/miniconda3/etc/profile.d/conda.sh
-conda env create -f environment.yaml
-conda activate ldm
-pip install torchmetrics==0.6.0
-pip install packaging==21.3
-pip install kornia
-
-# Download pretrained VAE (KL-f8)
-wget -O /tmp/kl-f8.zip https://ommer-lab.com/files/latent-diffusion/kl-f8.zip
-sudo apt install -y unzip
-unzip -o /tmp/kl-f8.zip -d models/first_stage_models/kl-f8/
-
-# Symlink dữ liệu
-ln -sf /home/ubuntu/vuongvy/openearthimage_extract data/earth
-```
-
-### 7.2 Train Latent Diffusion
-
-```bash
-cd /home/ubuntu/vuongvy/latent-diffusion
-conda activate ldm
-
-# Train trong tmux
-tmux new -s latent-diffusion
-CUDA_VISIBLE_DEVICES=0 python main.py \
-    --base configs/latent-diffusion/earth-denoiser-bsr-sr.yaml \
-    -t --gpus 0, --logdir logs
-```
-
-### 7.3 Evaluate Latent Diffusion
-
-```bash
-conda activate ldm
-cd /home/ubuntu/vuongvy/latent-diffusion
-
-python evaluate_denoising.py \
-    --config configs/latent-diffusion/earth-denoiser-bsr-sr.yaml \
-    --checkpoint logs/2026-02-08T12-17-56_earth-denoiser-bsr-sr/checkpoints/epoch=000000.ckpt \
-    --output results/denoising_eval_epoch0 \
-    --num_samples 20 \
-    --ddim_steps 50
-```
-
----
-
-## Tóm Tắt Checkpoints & Kết Quả
+## Phase 5: Tóm Tắt Checkpoints & Kết Quả
 
 | Model | Checkpoint | Params | Training Time |
 |-------|-----------|--------|---------------|
 | DAE Lightweight ⭐ | `dae_lightweight_mixed_20260208_122512_best.pth` | 12.8M | ~2-3h |
 | DAE Conditional | `dae_conditional_mixed_20260208_153934_best.pth` | 39.1M | ~8-10h |
-| Diffusion | `diffusion_T1000_dim64_20260209_060507_best.pth` | 22.2M | ~24h (50 epochs) |
 | DAE UNet-ResNet34 | *(trained qua run_all.sh, xem log)* | 24.5M | ~3-4h |
 | DAE UNet-EffNetB4 | *(trained qua run_all.sh, xem log)* | 20.2M | ~3-4h |
 
@@ -395,13 +264,9 @@ results/
 ├── logs/                              # Training logs & history JSON
 │   ├── run_all_20260207_160648.log    # Log chạy toàn bộ DAE
 │   ├── dae_*_history.json             # Training history (loss, mIoU, per-class IoU)
-│   └── diffusion_*_history.json       # Diffusion training history
-├── train_conditional.log              # Log DAE Conditional
-├── train_diffusion_50ep.log           # Log Diffusion 50 epochs
-├── eval_diffusion.log                 # Log evaluate Diffusion
+│   └── train_conditional.log          # Log DAE Conditional
 ├── metrics/
-│   ├── dae_evaluation.json            # DAE eval: 5 noise types × 5 rates
-│   └── diffusion_evaluation.json      # Diffusion eval: 5 noise types × 5 rates
+│   └── dae_evaluation.json            # DAE eval: 5 noise types × 5 rates
 ├── visualizations/
 │   ├── random_test_samples/           # Demo ảnh val
 │   ├── test_samples/                  # Demo ảnh test

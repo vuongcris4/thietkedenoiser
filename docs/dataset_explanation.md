@@ -175,7 +175,7 @@ DAEDataset.__getitem__()
     │  Output: (dae_input[11,H,W], clean_label[H,W])
     │
     ▼
-DataLoader → batch → Model (DAE / Diffusion) training
+DataLoader → batch → Model (DAE) training
 ```
 
 **Ý tưởng cốt lõi**: DAE học cách "khử nhiễu" label — nhận vào label bị sai (noisy) kết hợp với ảnh gốc → dự đoán ra label đúng (clean). Ứng dụng: cải thiện chất lượng pseudo-label trong thực tế.

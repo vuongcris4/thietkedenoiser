@@ -340,18 +340,6 @@
 
 ###### Chấp nhận sai số một chiều: Super-pixel có biên thì Segmentation phải có, nhưng ngược lại thì có thể bỏ qua.
 
-##### 4. Diffusion Model cho Denoising (Ý tưởng mới)
-
-###### Cách tiếp cận đột phá (Out-of-the-box)
-
-####### Coi các nhãn dự đoán sai (pseudo-label noise) là một dạng tín hiệu nhiễu.
-
-####### Thay vì dùng GAN để phát hiện nhiễu (như cũ), dùng Diffusion Model để "khử nhiễu" trực tiếp.
-
-###### Quy trình
-
-####### Train model Diffusion để biến đổi từ "nhãn nhiễu" sang "nhãn sạch".
-
 #### Kế hoạch thực hiện (Action Plan)
 
 ##### Thiết lập Baseline
@@ -368,7 +356,7 @@
 
 ##### Phát triển thuật toán
 
-###### Tập trung vào hướng Pixel-level Query hoặc Diffusion Denoising.
+###### Tập trung vào hướng Pixel-level Query.
 
 ## Cần làm Denoiser 
 
@@ -508,123 +496,7 @@
 
 ###### Chấp nhận sai số một chiều (Super-pixel có -> Mask có)
 
-#### Giải pháp 3: Generative Denoising (Đột phá)
-
-##### Công nghệ: Diffusion Model
-
-##### Ý tưởng
-
-###### Coi "Pseudo-label noise" là một dạng tín hiệu nhiễu
-
-###### Train Diffusion Model để chuyển đổi: Nhãn nhiễu -> Nhãn sạch
-
-##### Ưu điểm: Khả năng tái tạo cấu trúc tốt hơn GAN
-
-##### chi tiết
-
-###### Giải pháp 3: Generative Denoising (Diffusion Model)
-
-####### Tư duy cốt lõi (Core Concept)
-
-######## Góc nhìn cũ (Traditional/Filter)
-
-######### Coi nhãn là: Đối tượng logic (Đúng hoặc Sai)
-
-######### Hành động: Sàng lọc (Filtering)
-
-######### Nhược điểm: Bỏ phí dữ liệu nếu nhãn chỉ sai một chút
-
-######## Góc nhìn mới (Generative/Restore)
-
-######### Coi nhãn là: Tín hiệu hình ảnh (Image Signal)
-
-######### Vấn đề: Pseudo-label là một bức ảnh bị "mờ" hoặc "nhiễu"
-
-######### Hành động: Phục chế (Restoration)
-
-######### Mục tiêu: Biến nhãn sai thành nhãn đúng thay vì vứt bỏ
-
-####### Cơ chế hoạt động (Mechanism)
-
-######## Quy trình thuận (Forward Process - Training)
-
-######### Input: Nhãn thật (Ground Truth - GT)
-
-######### Hành động: Cố tình thêm nhiễu (Gaussian noise) vào GT theo thời gian t
-
-######### Kết quả: Biến GT sạch thành một bản đồ nhiễu (Mô phỏng Pseudo-label lỗi)
-
-######## Quy trình nghịch (Reverse Process - Denoising)
-
-######### Mục tiêu: Học cách đảo ngược quá trình thêm nhiễu
-
-######### Input: Bản đồ nhiễu (Noisy Mask)
-
-######### Điều kiện (Conditioning): Ảnh vệ tinh gốc (Raw Image)
-
-######### Logic: "Nhìn vào ảnh vệ tinh để biết cách sửa lại bản đồ nhãn đang bị sai"
-
-######### Output: Nhãn sạch (Refined Label)
-
-####### Tại sao vượt trội cho ảnh vệ tinh? (Why Remote Sensing?)
-
-######## Khắc phục Ranh giới mờ (Ambiguous Boundaries)
-
-######### Vấn đề: Ranh giới giữa các loại đất thường không rõ ràng
-
-######### Diffusion: Tạo ra các đường ranh giới mượt mà (smooth) và liên tục, tránh hiện tượng răng cưa
-
-######## Khắc phục Nhiễu lốm đốm (Salt-and-pepper Noise)
-
-######### Vấn đề: Model thường dự đoán sai các pixel nhỏ lẻ (vd: điểm nước giữa rừng)
-
-######### Diffusion: Có tính chất làm mịn (smoothing), tự động đồng nhất các vùng nhỏ vào bối cảnh lớn
-
-######## Bảo toàn Cấu trúc không gian (Spatial Consistency)
-
-######### Vấn đề: GAN đôi khi tạo ra hình dạng phi vật lý
-
-######### Diffusion: Học được phân phối hình dạng (Shape Prior)
-
-######### Ví dụ: Hiểu rằng "con đường" phải là một dải liền mạch, không được đứt đoạn vô lý
-
-####### Quy trình thực hiện (Implementation Workflow)
-
-######## Bước 1: Initial Pseudo-labeling
-
-######### Train model cơ bản (UNet/SegFormer) trên tập có nhãn
-
-######### Sinh nhãn giả (Noisy Pseudo-labels) cho tập không nhãn
-
-######## Bước 2: Train Diffusion Denoiser
-
-######### Sử dụng tập dữ liệu có nhãn (Labeled Set)
-
-######### Học mô hình xác suất: P(Clean Label | Noisy Label, Satellite Image)
-
-######## Bước 3: Label Refinement
-
-######### Dùng Denoiser đã học để sửa lỗi cho tập Pseudo-labels ở Bước 1
-
-######### Kết quả: Tập Pseudo-labels chất lượng cao (High-quality)
-
-######## Bước 4: Final Segmentation Training
-
-######### Dùng tập nhãn đã làm sạch để train model phân lớp cuối cùng
-
-######### Đạt hiệu năng vượt trội so với Baseline
-
-####### Từ khóa tham khảo (Keywords)
-
-######## Denoising Diffusion Probabilistic Models (DDPM)
-
-######## Conditional Diffusion for Segmentation
-
-######## Label Refinement via Generative Models
-
-######## SegDiff
-
-#### Giải pháp 4: Feature-based Filtering
+#### Giải pháp 3: Feature-based Filtering
 
 ##### Discriminator mở rộng
 
@@ -650,7 +522,7 @@
 
 #### Bước 3: Phát triển Denoiser
 
-##### Ưu tiên hướng: Pixel-level Query hoặc Diffusion Denoising
+##### Ưu tiên hướng: Pixel-level Query
 
 #### Bước 4: Viết báo cáo/Luận văn
 

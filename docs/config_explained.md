@@ -1,4 +1,4 @@
-# Giải thích cấu hình (Configuration) của hệ thống DAE/Diffusion
+# Giải thích cấu hình (Configuration) của hệ thống DAE
 
 ## Cơ chế kế thừa (`_base_`)
 
@@ -69,22 +69,6 @@ model:
   num_classes: 8
 ```
 
-### Diffusion Model
-
-```yaml
-# diffusion.yaml
-model:
-  name: "diffusion"
-  num_classes: 8
-  T: 1000               # Số bước diffusion (càng nhiều → càng mịn nhưng chậm hơn)
-  base_dim: 64           # Số kênh cơ bản của UNet
-  dim_mults: [1, 2, 4, 8]  # Nhân hệ số kênh qua mỗi tầng: 64→128→256→512
-  cond_channels: 3       # Số kênh conditioning (RGB = 3)
-  time_dim: 256          # Chiều embedding cho timestep
-  beta_start: 1.0e-4     # Mức nhiễu bắt đầu (rất nhỏ)
-  beta_end: 0.02         # Mức nhiễu kết thúc (lớn hơn)
-```
-
 ---
 
 ## 3. Khối `training:` — Cấu hình huấn luyện
@@ -149,17 +133,7 @@ noise:
 
 ---
 
-## 6. Khối `inference:` — Chỉ dành cho Diffusion
-
-```yaml
-inference:
-  denoise_steps: 50     # Số bước khử nhiễu khi inference (< T=1000 để nhanh hơn)
-  start_t: null         # Bước bắt đầu (null = T//4 = 250)
-```
-
----
-
-## Tổng quan: 6 file config
+## Tổng quan: 5 file config
 
 | File | Model | Đặc điểm |
 |------|-------|----------|
@@ -168,4 +142,3 @@ inference:
 | `dae_resnet34.yaml` | UNet+ResNet-34 | Pretrained, ~24M params |
 | `dae_effnet.yaml` | UNet+EfficientNet-B4 | Pretrained, cân bằng |
 | `dae_conditional.yaml` | ConditionalDAE | Dual-encoder + attention |
-| `diffusion.yaml` | Diffusion Model | 1000 bước, chậm nhưng mạnh |

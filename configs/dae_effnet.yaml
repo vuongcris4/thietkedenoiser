@@ -8,7 +8,6 @@ model:
   name: "unet_effnet"
   encoder_name: "efficientnet-b4"
   encoder_weights: "imagenet"
-  in_channels: 11    # RGB(3) + one-hot label(8)
   num_classes: 8
 
 # Training

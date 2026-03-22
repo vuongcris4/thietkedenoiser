@@ -8,7 +8,7 @@ Cấu trúc thư mục OEM:
 
 File này cung cấp 2 Dataset:
     1. OpenEarthMapDataset: đọc ảnh + label gốc → (img[3,H,W], label[H,W])
-    2. DAEDataset: wrapper thêm nhiễu vào label → (dae_input[11,H,W], clean_label[H,W])
+    2. DAEDataset: wrapper thêm nhiễu → (rgb[3,H,W], noisy_onehot[8,H,W], clean_label[H,W])
 
 Luồng dữ liệu tổng thể:
     split file → find_oem_pairs() → OpenEarthMapDataset → DAEDataset → DataLoader → Model
@@ -28,7 +28,8 @@ CLASS_NAMES = [
 ]
 NUM_CLASSES = 8  # Tổng số lớp, dùng cho one-hot encoding và clamp label
 
-
+# suy ra thư mục từ tên file
+# Trích tên region bằng cách tách dấu _ cuối cùng:
 def _get_region(filename):
     """
     Trích xuất tên vùng (region) từ tên file.
@@ -192,8 +193,10 @@ class DAEDataset(Dataset):
     Wrapper Dataset cho training DAE (Denoising AutoEncoder).
     
     Bọc OpenEarthMapDataset, thêm nhiễu nhân tạo vào label để tạo cặp training:
-        Input  (dae_input)  : concat(RGB[3ch] + noisy_label_onehot[8ch]) = [11, H, W]
-        Target (clean_label): label gốc chưa nhiễu = [H, W]
+        Output: (rgb[3,H,W], noisy_onehot[8,H,W], clean_label[H,W])
+          - rgb          : ảnh RGB gốc, float32, [0,1]
+          - noisy_onehot : nhãn nhiễu dạng one-hot, float32
+          - clean_label  : nhãn sạch (ground truth), long [0,7]
     
     Ý tưởng: DAE học cách khử nhiễu label — nhận label bị sai + ảnh gốc → dự đoán label đúng.
     Ứng dụng: Cải thiện chất lượng pseudo-label trong thực tế.
@@ -238,101 +241,15 @@ class DAEDataset(Dataset):
     
     def __getitem__(self, idx):
         """
-        Lấy 1 sample cho DAE training.
+        Lấy 1 sample cho DAE training (Later Fusion format).
 
         Input:  idx (int) - chỉ số sample
-        Output: (dae_input, clean_label)
-            dae_input   : tensor [11, H, W] float32 - concat(RGB[3] + noisy_onehot[8])
-            clean_label : tensor [H, W] long [0,7]  - label gốc (ground truth)
+        Output: (rgb, noisy_onehot, clean_label)
+            rgb          : tensor [3, H, W]  float32 [0,1] - ảnh RGB gốc
+            noisy_onehot : tensor [8, H, W]  float32       - nhãn nhiễu dạng one-hot
+            clean_label  : tensor [H, W]     long [0,7]    - label gốc (ground truth)
 
-        ===== VÍ DỤ CỤ THỂ (ảnh 4×4 pixel, 8 classes) =====
-
-        Bước 1: Lấy (img, label) từ base dataset
-        ─────────────────────────────────────────
-            img = [3, 4, 4] float32 (RGB, giá trị 0.0-1.0)
-                Kênh R: [[0.2, 0.3, 0.1, 0.8],    ← giá trị màu đỏ
-                          [0.5, 0.6, 0.2, 0.7],
-                          [0.1, 0.4, 0.9, 0.3],
-                          [0.6, 0.2, 0.5, 0.4]]
-                Kênh G: [[...], [...], [...], [...]]  ← tương tự cho xanh lá
-                Kênh B: [[...], [...], [...], [...]]  ← tương tự cho xanh dương
-
-            clean_label = [4, 4] long (class index 0-7)
-                [[0, 0, 5, 5],     ← 0=Bareland, 5=Water
-                 [0, 3, 5, 5],     ← 3=Road
-                 [7, 3, 4, 4],     ← 7=Building, 4=Tree
-                 [7, 7, 4, 4]]
-
-        Bước 2: Thêm noise vào label (vẫn dạng class index [H,W])
-        ─────────────────────────────────────────────────────────
-            noise_rate = 0.2 (random trong khoảng 0.05-0.30)
-            → đổi ~20% pixel = 3/16 pixel bị sai class
-
-            noisy_label = [4, 4] (3 pixel bị đổi, đánh dấu ★)
-                [[0, 0, 5, 5],
-                 [0, 2, 5, 5],     ← ★ pixel (1,1): 3→2 (Road→Developed)
-                 [7, 3, 1, 4],     ← ★ pixel (2,2): 4→1 (Tree→Rangeland)
-                 [7, 7, 4, 6]]     ← ★ pixel (3,3): 4→6 (Tree→Agriculture)
-
-        Bước 3: One-hot encode noisy_label → [8, 4, 4]
-        ─────────────────────────────────────────────────
-            Mỗi class tạo 1 kênh binary mask (pixel thuộc class đó = 1.0)
-
-            Kênh 0 (Bareland):  [[1,1,0,0],   ← pixel có giá trị 0 → 1.0
-                                  [1,0,0,0],
-                                  [0,0,0,0],
-                                  [0,0,0,0]]
-
-            Kênh 1 (Rangeland): [[0,0,0,0],   ← pixel có giá trị 1 → 1.0
-                                  [0,0,0,0],
-                                  [0,0,1,0],   ← ★ pixel nhiễu (2,2)
-                                  [0,0,0,0]]
-
-            Kênh 2 (Developed): [[0,0,0,0],
-                                  [0,1,0,0],   ← ★ pixel nhiễu (1,1)
-                                  [0,0,0,0],
-                                  [0,0,0,0]]
-
-            Kênh 3 (Road):      [[0,0,0,0],
-                                  [0,0,0,0],   ← pixel (1,1) KHÔNG còn ở đây (bị đổi→2)
-                                  [0,1,0,0],
-                                  [0,0,0,0]]
-
-            Kênh 4 (Tree):      [[0,0,0,0],
-                                  [0,0,0,0],
-                                  [0,0,0,1],   ← pixel (2,2) KHÔNG còn (bị đổi→1)
-                                  [0,0,1,0]]   ← pixel (3,3) KHÔNG còn (bị đổi→6)
-
-            Kênh 5 (Water):     [[0,0,1,1],
-                                  [0,0,1,1],
-                                  [0,0,0,0],
-                                  [0,0,0,0]]
-
-            Kênh 6 (Agri):      [[0,0,0,0],
-                                  [0,0,0,0],
-                                  [0,0,0,0],
-                                  [0,0,0,1]]   ← ★ pixel nhiễu (3,3)
-
-            Kênh 7 (Building):  [[0,0,0,0],
-                                  [0,0,0,0],
-                                  [1,0,0,0],
-                                  [1,1,0,0]]
-
-        Bước 4: Concat img[3,4,4] + noisy_onehot[8,4,4] → dae_input[11,4,4]
-        ─────────────────────────────────────────────────────────────────────
-            dae_input = [11, 4, 4]
-                Kênh 0-2:   RGB (ảnh gốc)          ← model thấy ảnh thật
-                Kênh 3-10:  one-hot noisy label     ← model thấy label bị sai
-
-        Bước 5: Augmentation (flip ngang/dọc, 50% mỗi loại)
-        ────────────────────────────────────────────────────
-            Áp dụng ĐỒNG BỘ cho cả dae_input[11,4,4] và clean_label[4,4]
-            → đảm bảo pixel tương ứng vẫn khớp nhau sau flip
-
-        ===== KẾT QUẢ TRẢ VỀ =====
-            dae_input:    [11, H, W]  ← model nhận vào (ảnh + label nhiễu)
-            clean_label:  [H, W]      ← ground truth (label sạch để tính loss)
-            → DAE học: nhìn ảnh + label sai → dự đoán label đúng
+        Model nhận rgb và noisy_onehot qua 2 nhánh riêng biệt (dual-branch).
         """
         # Bước 1: Lấy ảnh + label sạch từ OpenEarthMapDataset
         img, clean_label = self.base_dataset[idx]
@@ -345,31 +262,200 @@ class DAEDataset(Dataset):
         
         # Bước 3: Áp dụng nhiễu lên label sạch → label bị nhiễu
         if self.noise_type == 'all_random':
-            # Chọn ngẫu nhiên 1 loại nhiễu mỗi lần
             nt = np.random.choice(list(self.noise_funcs.keys()))
             noisy_np = self.noise_funcs[nt](clean_np, noise_rate=noise_rate)
         else:
-            # Dùng loại nhiễu cố định (hoặc 'mixed' = kết hợp)
             noisy_np = self.noise_funcs[self.noise_type](clean_np, noise_rate=noise_rate)
         
         # Bước 4: Chuyển noisy label → one-hot encoding [8, H, W]
-        # Mỗi kênh c chứa mask nhị phân: pixel == class c → 1.0, ngược lại → 0.0
         noisy_onehot = np.zeros((NUM_CLASSES, self.img_size, self.img_size), dtype=np.float32)
         for c in range(NUM_CLASSES):
             noisy_onehot[c] = (noisy_np == c).astype(np.float32)
         noisy_onehot = torch.from_numpy(noisy_onehot)
         
-        # Bước 5: Ghép ảnh RGB [3,H,W] + noisy one-hot [8,H,W] → input [11,H,W]
-        # DAE nhận cả thông tin ảnh gốc lẫn label nhiễu để dự đoán label đúng
-        dae_input = torch.cat([img, noisy_onehot], dim=0)
-        
-        # Bước 6: Augmentation trên tensor (áp dụng đồng bộ cho input và target)
+        # Bước 5: Augmentation trên tensor (áp dụng đồng bộ cho rgb, noisy_onehot, clean_label)
         if self.augment:
             if torch.rand(1) > 0.5:  # Flip ngang (50%)
-                dae_input = torch.flip(dae_input, [2])  # Flip theo trục W
+                img = torch.flip(img, [2])
+                noisy_onehot = torch.flip(noisy_onehot, [2])
                 clean_label = torch.flip(clean_label.unsqueeze(0), [2]).squeeze(0)
             if torch.rand(1) > 0.5:  # Flip dọc (50%)
-                dae_input = torch.flip(dae_input, [1])  # Flip theo trục H
+                img = torch.flip(img, [1])
+                noisy_onehot = torch.flip(noisy_onehot, [1])
                 clean_label = torch.flip(clean_label.unsqueeze(0), [1]).squeeze(0)
         
-        return dae_input, clean_label
+        return img, noisy_onehot, clean_label
+
+
+# ============================================================
+# Real Noise Dataset: dùng pseudo-label thật từ model CISC-R
+# ============================================================
+#
+# Cấu trúc folder pseudo_root (vd: OEM_v2_aDanh/):
+#   pseudo_root/
+#   ├── images/      ← ảnh RGB (symlinks hoặc copy từ OpenEarthMap)
+#   ├── labels/      ← pseudo-labels từ CISC-R
+#   ├── train.txt    ← danh sách file train
+#   ├── val.txt      ← danh sách file val
+#   └── test.txt     ← danh sách file test
+#
+# Để tạo cấu trúc này, chạy: python reorganize_pseudo_dataset.py
+# ============================================================
+
+
+def find_pseudo_pairs(pseudo_root: str,
+                      split_file: str) -> List[Tuple[str, str]]:
+    """
+    Tìm cặp (ảnh, pseudo-label) từ folder có cấu trúc flat.
+
+    Input:
+        pseudo_root (str) - thư mục gốc chứa images/ + labels/
+        split_file  (str) - file .txt chứa danh sách tên file
+
+    Output:
+        List[Tuple[str, str]] - danh sách (img_path, label_path)
+    """
+    pairs = []
+    with open(split_file) as f:
+        filenames = [l.strip() for l in f if l.strip()]
+
+    for fn in filenames:
+        img_path = os.path.join(pseudo_root, 'images', fn)
+        lbl_path = os.path.join(pseudo_root, 'labels', fn)
+        if os.path.exists(img_path) and os.path.exists(lbl_path):
+            pairs.append((img_path, lbl_path))
+
+    return pairs
+
+
+class RealNoiseDAEDataset(Dataset):
+    """
+    Dataset cho DAE training với pseudo-label thật từ CISC-R.
+
+    Cấu trúc folder đơn giản (flat):
+        pseudo_root/images/{fn}.tif  → ảnh RGB
+        pseudo_root/labels/{fn}.tif  → pseudo-label (noisy)
+
+    Dùng clean label từ OpenEarthMap (data_root) nếu có,
+    hoặc chỉ trả về (rgb, pseudo_onehot) nếu không có clean label.
+
+    Output:
+        (rgb[3,H,W], pseudo_onehot[8,H,W], clean_label[H,W])
+    """
+
+    def __init__(self, pseudo_root: str,
+                 data_root: str = None,
+                 split: str = 'train',
+                 img_size: int = 512,
+                 augment: bool = True):
+        """
+        Input:
+            pseudo_root (str) - thư mục dataset (chứa images/, labels/, split files)
+            data_root   (str) - thư mục OpenEarthMap (lấy clean label), None = không dùng
+            split       (str) - 'train', 'val', 'test'
+            img_size    (int) - kích thước resize
+            augment     (bool) - bật augmentation
+        """
+        self.img_size = img_size
+        self.augment = augment and (split == 'train')
+        self.data_root = data_root
+
+        split_file = os.path.join(pseudo_root, f'{split}.txt')
+        if not os.path.exists(split_file):
+            raise FileNotFoundError(
+                f'Split file not found: {split_file}\n'
+                f'Chạy "python reorganize_pseudo_dataset.py" để tạo.'
+            )
+
+        self.pairs = find_pseudo_pairs(pseudo_root, split_file)
+        print(f'RealNoiseDAEDataset {split}: {len(self.pairs)} samples')
+
+    def __len__(self):
+        return len(self.pairs)
+
+    def __getitem__(self, idx):
+        """
+        Output: (rgb, pseudo_onehot, clean_label)
+            rgb           : [3, H, W] float32 [0,1]
+            pseudo_onehot : [8, H, W] float32
+            clean_label   : [H, W]    long [0,7]
+        """
+        img_path, pseudo_path = self.pairs[idx]
+
+        # === Đọc ảnh RGB ===
+        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+        if img is None:
+            img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+            if img is not None and img.shape[2] > 3:
+                img = img[:, :, :3]
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # === Đọc pseudo-label (noise thật từ CISC-R) ===
+        pseudo = cv2.imread(pseudo_path, cv2.IMREAD_UNCHANGED)
+        if pseudo is None:
+            try:
+                import tifffile
+                pseudo = tifffile.imread(pseudo_path)
+            except:
+                pseudo = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+        if pseudo.ndim == 3:
+            pseudo = pseudo[:, :, 0]
+
+        # === Đọc clean label (từ OpenEarthMap nếu có) ===
+        clean = None
+        if self.data_root:
+            fn = os.path.basename(pseudo_path)
+            region = _get_region(fn)
+            clean_path = os.path.join(self.data_root, region, 'labels', fn)
+            if os.path.exists(clean_path):
+                clean = cv2.imread(clean_path, cv2.IMREAD_UNCHANGED)
+                if clean is None:
+                    try:
+                        import tifffile
+                        clean = tifffile.imread(clean_path)
+                    except:
+                        clean = None
+                if clean is not None and clean.ndim == 3:
+                    clean = clean[:, :, 0]
+
+        if clean is None:
+            clean = pseudo.copy()  # fallback: pseudo = clean (no denoising)
+
+        # === Resize ===
+        img = cv2.resize(img, (self.img_size, self.img_size),
+                         interpolation=cv2.INTER_LINEAR)
+        clean = cv2.resize(clean, (self.img_size, self.img_size),
+                           interpolation=cv2.INTER_NEAREST)
+        pseudo = cv2.resize(pseudo, (self.img_size, self.img_size),
+                            interpolation=cv2.INTER_NEAREST)
+
+        # === Chuyển tensor ===
+        img_t = torch.from_numpy(
+            img.transpose(2, 0, 1).copy()
+        ).float() / 255.0  # [3, H, W]
+
+        clean_label = torch.from_numpy(clean.copy()).long()
+        clean_label = torch.clamp(clean_label, 0, NUM_CLASSES - 1)
+
+        pseudo_np = np.clip(pseudo.astype(np.int32), 0, NUM_CLASSES - 1)
+
+        # === One-hot encode pseudo-label → [8, H, W] ===
+        pseudo_onehot = np.zeros(
+            (NUM_CLASSES, self.img_size, self.img_size), dtype=np.float32
+        )
+        for c in range(NUM_CLASSES):
+            pseudo_onehot[c] = (pseudo_np == c).astype(np.float32)
+        pseudo_onehot = torch.from_numpy(pseudo_onehot)
+
+        # === Augmentation (đồng bộ rgb + pseudo + target) ===
+        if self.augment:
+            if torch.rand(1) > 0.5:
+                img_t = torch.flip(img_t, [2])
+                pseudo_onehot = torch.flip(pseudo_onehot, [2])
+                clean_label = torch.flip(clean_label.unsqueeze(0), [2]).squeeze(0)
+            if torch.rand(1) > 0.5:
+                img_t = torch.flip(img_t, [1])
+                pseudo_onehot = torch.flip(pseudo_onehot, [1])
+                clean_label = torch.flip(clean_label.unsqueeze(0), [1]).squeeze(0)
+
+        return img_t, pseudo_onehot, clean_label
