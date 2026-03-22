@@ -249,14 +249,14 @@ def main():
         )
 
     # Dùng pseudo-label thật từ CISC-R
-    # pseudo_root phải có: images/, labels/, train.txt, val.txt
+    # pseudo_root phải có: images/, pseudolabels/, labels/, train.txt, val.txt
     print(f'Using REAL pseudo-labels from: {pseudo_root}')
     train_dataset = RealNoiseDAEDataset(
-        pseudo_root, data_root=data_root, split='train',
+        pseudo_root, split='train',
         img_size=img_size, augment=augment
     )
     val_dataset = RealNoiseDAEDataset(
-        pseudo_root, data_root=data_root, split='val',
+        pseudo_root, split='val',
         img_size=img_size, augment=False
     )
 
@@ -450,7 +450,7 @@ def main():
 
             n_samples = 10
             infer_dataset = RealNoiseDAEDataset(
-                pseudo_root, data_root=data_root, split='val',
+                pseudo_root, split='val',
                 img_size=img_size, augment=False
             )
             indices = np.random.RandomState(seed).choice(

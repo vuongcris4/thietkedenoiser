@@ -6,8 +6,7 @@ Usage:
         --run_id vrylq49n \
         --checkpoint checkpoints/dae_unet_resnet34_real_20260320_134113_best.pth \
         --model unet_resnet34 \
-        --pseudo_root data/OEM_v2_aDanh \
-        --data_root data/OpenEarthMap
+        --pseudo_root data/OEM_v2_aDanh
 """
 import argparse, os, sys, torch, numpy as np
 import matplotlib
@@ -48,7 +47,7 @@ def make_legend_image():
     return fig
 
 
-def run_inference_table(model, pseudo_root, data_root, img_size,
+def run_inference_table(model, pseudo_root, img_size,
                         n_samples, seed, device):
     """Run inference and return a wandb.Table with individual images per row."""
     columns = ["sample_id", "rgb", "noisy_label", "dae_output",
@@ -56,7 +55,7 @@ def run_inference_table(model, pseudo_root, data_root, img_size,
     table = wandb.Table(columns=columns)
 
     dataset = RealNoiseDAEDataset(
-        pseudo_root, data_root=data_root, split='val',
+        pseudo_root, split='val',
         img_size=img_size, augment=False
     )
     indices = np.random.RandomState(seed).choice(
@@ -101,7 +100,6 @@ def main():
     parser.add_argument('--model', required=True,
                         choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'])
     parser.add_argument('--pseudo_root', required=True, help='Path to pseudo-label dataset')
-    parser.add_argument('--data_root', default='data/OpenEarthMap')
     parser.add_argument('--project', default='thietkedenoiser')
     parser.add_argument('--entity', default='vuongcris4-hcmute')
     parser.add_argument('--img_size', type=int, default=512)
@@ -146,7 +144,7 @@ def main():
     # Generate inference table
     print('Generating inference table...')
     table = run_inference_table(
-        model, args.pseudo_root, args.data_root, args.img_size,
+        model, args.pseudo_root, args.img_size,
         args.n_samples, args.seed, device
     )
     wandb.log({"inference_results": table})

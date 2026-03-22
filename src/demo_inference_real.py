@@ -44,8 +44,6 @@ def parse_args():
                         help='Path to model checkpoint (.pth)')
     parser.add_argument('--pseudo_root', type=str, required=True,
                         help='Path to pseudo-label dataset root (e.g., data/OEM_v2_aDanh)')
-    parser.add_argument('--data_root', type=str, default='data/OpenEarthMap_wo_xBD',
-                        help='Path to original dataset for clean labels (default: data/OpenEarthMap_wo_xBD)')
     parser.add_argument('--output_dir', type=str, default='results/visualizations/demo_real_latest',
                         help='Output directory for visualizations (default: results/visualizations/demo_real_latest)')
     parser.add_argument('--model', type=str, default='lightweight',
@@ -93,7 +91,6 @@ def main():
     # Load dataset with REAL pseudo-labels
     dataset = RealNoiseDAEDataset(
         pseudo_root=args.pseudo_root,
-        data_root=args.data_root,
         split=args.split,
         img_size=args.img_size,
         augment=False

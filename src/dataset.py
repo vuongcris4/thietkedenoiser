@@ -191,27 +191,28 @@ class OpenEarthMapDataset(Dataset):
 #
 # Cấu trúc folder pseudo_root (vd: OEM_v2_aDanh/):
 #   pseudo_root/
-#   ├── images/      ← ảnh RGB (symlinks hoặc copy từ OpenEarthMap)
-#   ├── labels/      ← pseudo-labels từ CISC-R
-#   ├── train.txt    ← danh sách file train
-#   ├── val.txt      ← danh sách file val
-#   └── test.txt     ← danh sách file test
+#   ├── images/       ← ảnh RGB (symlinks từ OpenEarthMap)
+#   ├── pseudolabels/ ← pseudo-labels từ CISC-R (noisy)
+#   ├── labels/       ← ground truth từ OpenEarthMap (clean)
+#   ├── train.txt     ← danh sách file train
+#   ├── val.txt       ← danh sách file val
+#   └── test.txt      ← danh sách file test
 #
 # Để tạo cấu trúc này, chạy: python reorganize_pseudo_dataset.py
 # ============================================================
 
 
 def find_pseudo_pairs(pseudo_root: str,
-                      split_file: str) -> List[Tuple[str, str]]:
+                      split_file: str) -> List[Tuple[str, str, str]]:
     """
-    Tìm cặp (ảnh, pseudo-label) từ folder có cấu trúc flat.
+    Tìm bộ ba (ảnh, pseudo-label, ground-truth) từ folder.
 
     Input:
-        pseudo_root (str) - thư mục gốc chứa images/ + labels/
+        pseudo_root (str) - thư mục gốc chứa images/, pseudolabels/, labels/
         split_file  (str) - file .txt chứa danh sách tên file
 
     Output:
-        List[Tuple[str, str]] - danh sách (img_path, label_path)
+        List[Tuple[str, str, str]] - danh sách (img_path, pseudo_path, gt_path)
     """
     pairs = []
     with open(split_file) as f:
@@ -219,9 +220,10 @@ def find_pseudo_pairs(pseudo_root: str,
 
     for fn in filenames:
         img_path = os.path.join(pseudo_root, 'images', fn)
-        lbl_path = os.path.join(pseudo_root, 'labels', fn)
-        if os.path.exists(img_path) and os.path.exists(lbl_path):
-            pairs.append((img_path, lbl_path))
+        pseudo_path = os.path.join(pseudo_root, 'pseudolabels', fn)
+        gt_path = os.path.join(pseudo_root, 'labels', fn)
+        if os.path.exists(img_path) and os.path.exists(pseudo_path) and os.path.exists(gt_path):
+            pairs.append((img_path, pseudo_path, gt_path))
 
     return pairs
 
@@ -230,12 +232,10 @@ class RealNoiseDAEDataset(Dataset):
     """
     Dataset cho DAE training với pseudo-label thật từ CISC-R.
 
-    Cấu trúc folder đơn giản (flat):
-        pseudo_root/images/{fn}.tif  → ảnh RGB
-        pseudo_root/labels/{fn}.tif  → pseudo-label (noisy)
-
-    Dùng clean label từ OpenEarthMap (data_root) nếu có,
-    hoặc chỉ trả về (rgb, pseudo_onehot) nếu không có clean label.
+    Cấu trúc folder:
+        pseudo_root/images/{fn}.tif       → ảnh RGB
+        pseudo_root/pseudolabels/{fn}.tif → pseudo-label (noisy từ CISC-R)
+        pseudo_root/labels/{fn}.tif       → ground truth (clean từ OpenEarthMap)
 
     Output:
         (rgb[3,H,W], pseudo_onehot[8,H,W], clean_label[H,W])
@@ -248,15 +248,14 @@ class RealNoiseDAEDataset(Dataset):
                  augment: bool = True):
         """
         Input:
-            pseudo_root (str) - thư mục dataset (chứa images/, labels/, split files)
-            data_root   (str) - thư mục OpenEarthMap (lấy clean label), None = không dùng
+            pseudo_root (str) - thư mục dataset (chứa images/, pseudolabels/, labels/, split files)
+            data_root   (str) - không còn dùng (ground truth đã có sẵn trong labels/)
             split       (str) - 'train', 'val', 'test'
             img_size    (int) - kích thước resize
             augment     (bool) - bật augmentation
         """
         self.img_size = img_size
         self.augment = augment and (split == 'train')
-        self.data_root = data_root
 
         split_file = os.path.join(pseudo_root, f'{split}.txt')
         if not os.path.exists(split_file):
@@ -278,7 +277,7 @@ class RealNoiseDAEDataset(Dataset):
             pseudo_onehot : [8, H, W] float32
             clean_label   : [H, W]    long [0,7]
         """
-        img_path, pseudo_path = self.pairs[idx]
+        img_path, pseudo_path, gt_path = self.pairs[idx]
 
         # === Đọc ảnh RGB ===
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
@@ -299,25 +298,16 @@ class RealNoiseDAEDataset(Dataset):
         if pseudo.ndim == 3:
             pseudo = pseudo[:, :, 0]
 
-        # === Đọc clean label (từ OpenEarthMap nếu có) ===
-        clean = None
-        if self.data_root:
-            fn = os.path.basename(pseudo_path)
-            region = _get_region(fn)
-            clean_path = os.path.join(self.data_root, region, 'labels', fn)
-            if os.path.exists(clean_path):
-                clean = cv2.imread(clean_path, cv2.IMREAD_UNCHANGED)
-                if clean is None:
-                    try:
-                        import tifffile
-                        clean = tifffile.imread(clean_path)
-                    except:
-                        clean = None
-                if clean is not None and clean.ndim == 3:
-                    clean = clean[:, :, 0]
-
+        # === Đọc ground truth (clean label từ OpenEarthMap) ===
+        clean = cv2.imread(gt_path, cv2.IMREAD_UNCHANGED)
         if clean is None:
-            clean = pseudo.copy()  # fallback: pseudo = clean (no denoising)
+            try:
+                import tifffile
+                clean = tifffile.imread(gt_path)
+            except:
+                clean = pseudo.copy()  # fallback: use pseudo as clean
+        if clean.ndim == 3:
+            clean = clean[:, :, 0]
 
         # === Resize ===
         img = cv2.resize(img, (self.img_size, self.img_size),

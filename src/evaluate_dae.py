@@ -16,10 +16,10 @@ from noise_generator import CLASS_NAMES, compute_iou
 
 
 @torch.no_grad()
-def evaluate_model(model, pseudo_root, data_root, device, img_size=512, batch_size=4):
+def evaluate_model(model, pseudo_root, device, img_size=512, batch_size=4):
     """Evaluate DAE on real pseudo-labels from CISC-R."""
     dataset = RealNoiseDAEDataset(
-        pseudo_root, data_root=data_root, split='val',
+        pseudo_root, split='val',
         img_size=img_size, augment=False
     )
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)
@@ -86,8 +86,6 @@ if __name__ == '__main__':
                         choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'])
     parser.add_argument('--pseudo_root', type=str, required=True,
                         help='Path to pseudo-label dataset (e.g., data/OEM_v2_aDanh)')
-    parser.add_argument('--data_root', type=str, default='data/OpenEarthMap',
-                        help='Path to original OpenEarthMap dataset')
     parser.add_argument('--output_dir', type=str, default='../results/metrics')
     parser.add_argument('--img_size', type=int, default=512)
     parser.add_argument('--batch_size', type=int, default=4)
@@ -105,7 +103,7 @@ if __name__ == '__main__':
 
     print(f'\nEvaluating on real pseudo-labels from: {args.pseudo_root}')
     results = evaluate_model(
-        model, args.pseudo_root, args.data_root, device,
+        model, args.pseudo_root, device,
         img_size=args.img_size, batch_size=args.batch_size
     )
 

@@ -9,11 +9,12 @@ Chuyển từ cấu trúc flat:
 
 Thành cấu trúc chuẩn:
     OEM_v2_aDanh/
-    ├── images/          ← symlinks tới OpenEarthMap/{region}/images/{fn}
-    ├── labels/          ← pseudo-labels (move từ root)
-    ├── train.txt        ← 80% files
-    ├── val.txt          ← 10% files
-    └── test.txt         ← 10% files
+    ├── images/       ← symlinks tới OpenEarthMap/{region}/images/{fn}
+    ├── pseudolabels/ ← pseudo-labels từ CISC-R (move từ root)
+    ├── labels/       ← ground truth từ OpenEarthMap (copy)
+    ├── train.txt     ← 80% files
+    ├── val.txt       ← 10% files
+    └── test.txt      ← 10% files
 
 Usage:
     python reorganize_pseudo_dataset.py
@@ -52,38 +53,49 @@ def main():
         print('ERROR: No .tif files found in PSEUDO_ROOT!')
         sys.exit(1)
 
-    # === 2. Tạo thư mục images/ và labels/ ===
+    # === 2. Tạo thư mục images/, pseudolabels/, labels/ ===
     img_dir = os.path.join(PSEUDO_ROOT, 'images')
-    lbl_dir = os.path.join(PSEUDO_ROOT, 'labels')
-    os.makedirs(img_dir, exist_ok=True)
-    os.makedirs(lbl_dir, exist_ok=True)
-    print(f'Created: {img_dir}')
-    print(f'Created: {lbl_dir}')
+    pseudo_dir = os.path.join(PSEUDO_ROOT, 'pseudolabels')
+    gt_dir = os.path.join(PSEUDO_ROOT, 'labels')
 
-    # === 3. Di chuyển pseudo-labels vào labels/ + tạo symlink images/ ===
+    os.makedirs(img_dir, exist_ok=True)
+    os.makedirs(pseudo_dir, exist_ok=True)
+    os.makedirs(gt_dir, exist_ok=True)
+
+    print(f'Created: {img_dir}')
+    print(f'Created: {pseudo_dir}')
+    print(f'Created: {gt_dir}')
+
+    # === 3. Di chuyển pseudo-labels + copy ground truth + tạo symlink images/ ===
     valid_files = []
     skipped = 0
 
     for i, fn in enumerate(pseudo_files):
         region = _get_region(fn)
         oem_img = os.path.join(OEM_ROOT, region, 'images', fn)
+        oem_lbl = os.path.join(OEM_ROOT, region, 'labels', fn)
 
         src_pseudo = os.path.join(PSEUDO_ROOT, fn)
-        dst_pseudo = os.path.join(lbl_dir, fn)
+        dst_pseudo = os.path.join(pseudo_dir, fn)
         dst_img = os.path.join(img_dir, fn)
+        dst_gt = os.path.join(gt_dir, fn)
 
         # Kiểm tra ảnh gốc trong OpenEarthMap
         if not os.path.exists(oem_img):
             skipped += 1
             continue
 
-        # Move pseudo-label vào labels/
+        # Move pseudo-label vào pseudolabels/
         if not os.path.exists(dst_pseudo):
             shutil.move(src_pseudo, dst_pseudo)
 
         # Tạo symlink image
-        if not os.path.exists(dst_img):
+        if not os.path.exists(dst_img) and not os.path.islink(dst_img):
             os.symlink(oem_img, dst_img)
+
+        # Copy ground truth vào labels/
+        if os.path.exists(oem_lbl) and not os.path.exists(dst_gt):
+            shutil.copy2(oem_lbl, dst_gt)
 
         valid_files.append(fn)
 
