@@ -5,7 +5,7 @@
 
 # Data
 data_root: "data/OpenEarthMap"
-pseudo_root: "data/OEM_v2_aDanh"  # Pseudo-labels từ CISC-R (null = dùng synthetic noise)
+pseudo_root: "data/OEM_v2_aDanh"  # Pseudo-labels từ CISC-R (BẮT BUỘC)
 img_size: 512
 num_classes: 8
 

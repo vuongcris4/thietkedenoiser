@@ -36,7 +36,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(__file__))
 from config import load_config_from_args, print_config, cfg_to_flat
 from dae_model import build_model, count_params, DAELoss
-from dataset import DAEDataset, RealNoiseDAEDataset, NUM_CLASSES
+from dataset import RealNoiseDAEDataset, NUM_CLASSES
 from noise_generator import compute_iou, CLASS_NAMES
 
 
@@ -200,11 +200,6 @@ def main():
     dice_weight = loss_cfg.get("dice_weight", 1.0)
     boundary_weight = loss_cfg.get("boundary_weight", 0.5)
 
-    noise_cfg = cfg.get("noise", {})
-    noise_type = noise_cfg.get("type", "mixed")
-    noise_rate_min = noise_cfg.get("rate_min", 0.05)
-    noise_rate_max = noise_cfg.get("rate_max", 0.30)
-
     augment = cfg.get("augment", True)
     resume_path = cfg.get("resume", None)
 
@@ -219,11 +214,11 @@ def main():
     os.makedirs(save_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
-    exp_name = f'dae_{model_name}_{noise_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+    exp_name = f'dae_{model_name}_real_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
     print(f'\n{"="*60}')
     print(f'Experiment: {exp_name}')
     print(f'Model: {model_name}')
-    print(f'Noise: {noise_type} ({noise_rate_min}-{noise_rate_max})')
+    print(f'Dataset: REAL pseudo-labels from CISC-R')
     print(f'Device: {device}')
     print(f'{"="*60}\n')
 
@@ -244,34 +239,26 @@ def main():
         print('W&B disabled or not installed.')
 
     # Data
-    if pseudo_root and os.path.isdir(pseudo_root):
-        # Dùng pseudo-label thật từ CISC-R
-        # pseudo_root phải có: images/, labels/, train.txt, val.txt
-        # Chạy reorganize_pseudo_dataset.py nếu chưa setup
-        print(f'Using REAL pseudo-labels from: {pseudo_root}')
-        train_dataset = RealNoiseDAEDataset(
-            pseudo_root, data_root=data_root, split='train',
-            img_size=img_size, augment=augment
+    if not pseudo_root or not os.path.isdir(pseudo_root):
+        raise ValueError(
+            f'pseudo_root phải được cấu hình và tồn tại!\n'
+            f'Hiện tại: pseudo_root={pseudo_root}\n'
+            f'\n'
+            f'Để tạo dataset pseudo-label, chạy:\n'
+            f'  python src/reorganize_pseudo_dataset.py\n'
         )
-        val_dataset = RealNoiseDAEDataset(
-            pseudo_root, data_root=data_root, split='val',
-            img_size=img_size, augment=False
-        )
-    else:
-        # Fallback: dùng synthetic noise
-        print('Using SYNTHETIC noise (no pseudo_root configured)')
-        train_dataset = DAEDataset(
-            data_root, split='train', img_size=img_size,
-            noise_type=noise_type,
-            noise_rate_range=(noise_rate_min, noise_rate_max),
-            augment=augment
-        )
-        val_dataset = DAEDataset(
-            data_root, split='val', img_size=img_size,
-            noise_type=noise_type,
-            noise_rate_range=(noise_rate_min, noise_rate_max),
-            augment=False
-        )
+
+    # Dùng pseudo-label thật từ CISC-R
+    # pseudo_root phải có: images/, labels/, train.txt, val.txt
+    print(f'Using REAL pseudo-labels from: {pseudo_root}')
+    train_dataset = RealNoiseDAEDataset(
+        pseudo_root, data_root=data_root, split='train',
+        img_size=img_size, augment=augment
+    )
+    val_dataset = RealNoiseDAEDataset(
+        pseudo_root, data_root=data_root, split='val',
+        img_size=img_size, augment=False
+    )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
                               shuffle=True, num_workers=num_workers,

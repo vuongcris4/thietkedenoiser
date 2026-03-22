@@ -24,11 +24,5 @@ loss:
   dice_weight: 1.0
   boundary_weight: 0.5
 
-# Noise
-noise:
-  type: "mixed"
-  rate_min: 0.05
-  rate_max: 0.30
-
 # Data augmentation
 augment: true
