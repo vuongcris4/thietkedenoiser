@@ -11,7 +11,11 @@
 #   4. conditional    - Attention fusion (39.10M params)
 # =============================================================================
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CONFIG_DIR="$PROJECT_ROOT/configs"
+
+cd "$SCRIPT_DIR"
 
 echo "============================================================"
 echo "Starting DAE Experiments - 30 epochs each"
@@ -26,7 +30,7 @@ echo ""
 echo ">>> Experiment 1/4: Lightweight DAE (${EPOCHS} epochs)"
 echo "Started at: $(date)"
 python train_dae.py \
-    --config ../configs/dae_lightweight.yaml \
+    --config "$CONFIG_DIR/dae_lightweight.yaml" \
     --override training.epochs=${EPOCHS} \
     --override training.patience=10
 
@@ -35,7 +39,7 @@ echo ""
 echo ">>> Experiment 2/4: UNet ResNet-34 DAE (${EPOCHS} epochs)"
 echo "Started at: $(date)"
 python train_dae.py \
-    --config ../configs/dae_resnet34.yaml \
+    --config "$CONFIG_DIR/dae_resnet34.yaml" \
     --override training.epochs=${EPOCHS} \
     --override training.patience=10
 
@@ -44,7 +48,7 @@ echo ""
 echo ">>> Experiment 3/4: UNet EfficientNet-B4 DAE (${EPOCHS} epochs)"
 echo "Started at: $(date)"
 python train_dae.py \
-    --config ../configs/dae_effnet.yaml \
+    --config "$CONFIG_DIR/dae_effnet.yaml" \
     --override training.epochs=${EPOCHS} \
     --override training.patience=10
 
@@ -53,7 +57,7 @@ echo ""
 echo ">>> Experiment 4/4: Conditional DAE (${EPOCHS} epochs)"
 echo "Started at: $(date)"
 python train_dae.py \
-    --config ../configs/dae_conditional.yaml \
+    --config "$CONFIG_DIR/dae_conditional.yaml" \
     --override training.epochs=${EPOCHS} \
     --override training.patience=10
 
