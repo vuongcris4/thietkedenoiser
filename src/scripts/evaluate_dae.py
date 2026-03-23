@@ -84,7 +84,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint', type=str, required=True, help='Path to model checkpoint')
     parser.add_argument('--model', type=str, default='unet_resnet34',
-                        choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'])
+                        choices=['lightweight', 'unet_resnet34', 'unet_effnet'])
     parser.add_argument('--pseudo_root', type=str, required=True,
                         help='Path to pseudo-label dataset (e.g., data/OEM_v2_aDanh)')
     parser.add_argument('--output_dir', type=str, default='../results/metrics')

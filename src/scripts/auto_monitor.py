@@ -16,7 +16,7 @@ except ImportError:
     print("Error: wandb not installed.")
     sys.exit(1)
 
-MODELS = ['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional']
+MODELS = ['lightweight', 'unet_resnet34', 'unet_effnet']
 
 
 def get_latest_run(entity, project, model_name):

@@ -19,7 +19,6 @@ cd src/
 python scripts/train_dae.py --config ../configs/dae_lightweight.yaml  # Best model (97.78% mIoU)
 python scripts/train_dae.py --config ../configs/dae_resnet34.yaml
 python scripts/train_dae.py --config ../configs/dae_effnet.yaml
-python scripts/train_dae.py --config ../configs/dae_conditional.yaml
 
 # Override config from CLI
 python scripts/train_dae.py --config ../configs/dae_lightweight.yaml --override training.lr=0.0005
@@ -39,7 +38,7 @@ python scripts/evaluate_dae.py --checkpoint checkpoints/..._best.pth --pseudo_ro
 src/
 ├── core/               # Core components
 │   ├── config.py       # YAML config loader with inheritance (_base_) and CLI overrides
-│   ├── dae_model.py    # 4 DAE architectures + DAELoss (CE + Dice + Boundary)
+│   ├── dae_model.py    # 3 DAE architectures + DAELoss (CE + Dice + Boundary)
 │   ├── dataset.py      # OpenEarthMapDataset + RealNoiseDAEDataset (pseudo-labels from CISC-R)
 │   └── noise_generator.py  # CLASS_NAMES, compute_iou utility
 ├── scripts/            # Training/evaluation/inference scripts
@@ -74,7 +73,6 @@ Input: `rgb [B,3,H,W]` + `noisy_label [B,8,H,W]` → Output: `logits [B,8,H,W]`
 | `lightweight` | Custom CNN | 12.82M | 97.78% |
 | `unet_resnet34` | ResNet34 | 24.46M | 94.88% |
 | `unet_effnet` | EfficientNet-B4 | 20.23M | 96.00% |
-| `conditional` | ResNet34 + Attn | 39.10M | 89.22% |
 
 ### Config System
 
@@ -103,7 +101,7 @@ Total Loss = CE×1.0 + Dice×1.0 + Boundary×0.5
 
 1. **Smaller model wins**: Lightweight DAE (12.82M) outperforms larger models
 2. **Pretrained weights not helpful**: Input domain mismatch (11 channels vs ImageNet 3 channels)
-3. **Dual-encoder overhead**: Complex architecture (39.1M) underperforms simple one
+3. **Pretrained weights not helpful**: Input domain mismatch (11 channels vs ImageNet 3 channels)
 4. **Diffusion not pursued**: Complex approach, slow training
 
 ## Data

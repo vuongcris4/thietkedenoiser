@@ -26,7 +26,6 @@ cd src/
 python train_dae.py --config ../configs/dae_lightweight.yaml   # Best: 97.78% mIoU
 python train_dae.py --config ../configs/dae_resnet34.yaml
 python train_dae.py --config ../configs/dae_effnet.yaml
-python train_dae.py --config ../configs/dae_conditional.yaml
 
 # Override config from CLI (dot notation)
 python train_dae.py --config ../configs/dae_lightweight.yaml --override training.lr=0.0005

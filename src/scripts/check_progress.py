@@ -24,7 +24,7 @@ CLASS_NAMES = [
 ]
 
 # Models to track
-MODELS = ['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional']
+MODELS = ['lightweight', 'unet_resnet34', 'unet_effnet']
 
 
 def get_model_runs(entity, project, model_name):

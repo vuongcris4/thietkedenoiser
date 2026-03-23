@@ -105,7 +105,7 @@ def main():
     parser.add_argument('--run_id', required=True, help='W&B run ID to resume')
     parser.add_argument('--checkpoint', required=True, help='Path to checkpoint')
     parser.add_argument('--model', required=True,
-                        choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'])
+                        choices=['lightweight', 'unet_resnet34', 'unet_effnet'])
     parser.add_argument('--pseudo_root', required=True, help='Path to pseudo-label dataset')
     parser.add_argument('--project', default='thietkedenoiser')
     parser.add_argument('--entity', default='vuongcris4-hcmute')

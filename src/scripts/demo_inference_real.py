@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument('--output_dir', type=str, default='results/visualizations/demo_real_latest',
                         help='Output directory for visualizations (default: results/visualizations/demo_real_latest)')
     parser.add_argument('--model', type=str, default='lightweight',
-                        choices=['lightweight', 'unet_resnet34', 'unet_effnet', 'conditional'],
+                        choices=['lightweight', 'unet_resnet34', 'unet_effnet'],
                         help='Model architecture (default: lightweight)')
     parser.add_argument('--num_samples', type=int, default=12,
                         help='Number of samples to visualize (default: 12)')

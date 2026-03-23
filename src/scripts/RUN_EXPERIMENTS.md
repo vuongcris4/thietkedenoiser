@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-### 1. Chạy tất cả 4 experiments (30 epochs mỗi model)
+### 1. Chạy tất cả 3 experiments (30 epochs mỗi model)
 
 ```bash
 cd src/scripts/
@@ -13,7 +13,6 @@ Script sẽ chạy tuần tự:
 1. **Lightweight DAE** (12.82M params) - 30 epochs
 2. **UNet ResNet-34** (24.46M params) - 30 epochs
 3. **UNet EfficientNet-B4** (20.23M params) - 30 epochs
-4. **Conditional DAE** (39.10M params) - 30 epochs
 
 ### 2. Check tiến độ bằng sub-agent
 
@@ -56,11 +55,6 @@ python train_dae.py \
 python train_dae.py \
     --config ../configs/dae_effnet.yaml \
     --override training.epochs=30
-
-# Conditional DAE
-python train_dae.py \
-    --config ../configs/dae_conditional.yaml \
-    --override training.epochs=30
 ```
 
 ---
@@ -84,14 +78,12 @@ Truy cập: https://wandb.ai/{entity}/thietkedenoiser
 checkpoints/
 ├── dae_lightweight_real_YYYYMMDD_HHMMSS_best.pth
 ├── dae_unet_resnet34_real_YYYYMMDD_HHMMSS_best.pth
-├── dae_unet_effnet_real_YYYYMMDD_HHMMSS_best.pth
-└── dae_conditional_real_YYYYMMDD_HHMMSS_best.pth
+└── dae_unet_effnet_real_YYYYMMDD_HHMMSS_best.pth
 
 results/logs/
 ├── dae_lightweight_real_YYYYMMDD_HHMMSS_history.json
 ├── dae_unet_resnet34_real_YYYYMMDD_HHMMSS_history.json
-├── dae_unet_effnet_real_YYYYMMDD_HHMMSS_history.json
-└── dae_conditional_real_YYYYMMDD_HHMMSS_history.json
+└── dae_unet_effnet_real_YYYYMMDD_HHMMSS_history.json
 ```
 
 ---
@@ -103,6 +95,5 @@ results/logs/
 | lightweight | 12.82M | ~95-97% |
 | unet_resnet34 | 24.46M | ~92-95% |
 | unet_effnet | 20.23M | ~94-96% |
-| conditional | 39.10M | ~85-90% |
 
-*Lưu ý: Kết quả thực tế có thể khác tùy thuộc vào data và hyperparameters.*
+*3 models, all using later fusion dual-branch architecture.*

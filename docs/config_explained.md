@@ -61,12 +61,6 @@ model:
   encoder_weights: "imagenet"
   in_channels: 11
   num_classes: 8
-
-# dae_conditional.yaml
-model:
-  name: "conditional"       # Dual-encoder + Channel Attention
-  in_channels: 11
-  num_classes: 8
 ```
 
 ---
@@ -141,4 +135,3 @@ noise:
 | `dae_lightweight.yaml` | LightweightDAE | CNN nhẹ ~12.8M params |
 | `dae_resnet34.yaml` | UNet+ResNet-34 | Pretrained, ~24M params |
 | `dae_effnet.yaml` | UNet+EfficientNet-B4 | Pretrained, cân bằng |
-| `dae_conditional.yaml` | ConditionalDAE | Dual-encoder + attention |

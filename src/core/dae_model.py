@@ -2,7 +2,7 @@
 =============================================================================
 MỤC ĐÍCH CỦA FILE (File Purpose):
 =============================================================================
-File này định nghĩa 4 kiến trúc Denoising AutoEncoder (DAE) dùng để
+File này định nghĩa 3 kiến trúc Denoising AutoEncoder (DAE) dùng để
 "làm sạch" nhãn phân đoạn (pseudo-label) bị nhiễu trong ảnh vệ tinh.
 
 Kiến trúc: LATER FUSION (Dual Branch) với Skip Connections
@@ -14,15 +14,14 @@ Kiến trúc: LATER FUSION (Dual Branch) với Skip Connections
     Đầu vào: rgb [B, 3, H, W] + label [B, 8, H, W]  (2 tensor riêng biệt)
     Đầu ra:  logits [B, 8, H, W] (chưa qua softmax)
 
-4 biến thể mô hình:
+3 biến thể mô hình:
     1. UNetDAE_ResNet34   - RGB: ResNet-34 pretrained | Label: Lightweight CNN
     2. UNetDAE_EffNet     - RGB: EfficientNet-B4 pretrained | Label: Lightweight CNN
-    3. ConditionalDAE     - RGB: ResNet-34 pretrained + Attention Fusion
-    4. LightweightDAE     - RGB: Custom CNN | Label: Custom CNN (nhẹ nhất)
+    3. LightweightDAE     - RGB: Custom CNN | Label: Custom CNN (nhẹ nhất)
 
 Ví dụ sử dụng nhanh (Quick Usage):
     >>> from dae_model import build_model, DAELoss
-    >>> model = build_model('conditional')
+    >>> model = build_model('unet_resnet34')
     >>> rgb = torch.randn(2, 3, 256, 256)
     >>> label = torch.randn(2, 8, 256, 256)
     >>> logits = model(rgb, label)                # → [2, 8, 256, 256]
@@ -381,103 +380,7 @@ class UNetDAE_EffNet(nn.Module):
 
 
 # =============================================================================
-# MODEL 3: ConditionalDAE (Later Fusion + Channel Attention)
-# =============================================================================
-class ConditionalDAE(nn.Module):
-    """
-    Conditional DAE: Dual-branch với ResNet-34 + Channel Attention + Skip Connections.
-
-    Kiến trúc:
-        Nhánh RGB (ResNet-34)        Nhánh Label (Lightweight)
-        ┌─────────────┐              ┌─────────────┐
-        │ L1: 64ch    │──skip──┐ ┌──│ L1: 64ch    │
-        │ L2: 64ch    │──skip──┤ ├──│ L2: 64ch    │
-        │ L3: 128ch   │──skip──┤ ├──│ L3: 128ch   │
-        │ L4: 256ch   │──skip──┤ ├──│ L4: 256ch   │
-        │ L5: 512ch   │        │ │  │ L5: 512ch   │
-        └──────┬───────┘        │ │  └──────┬───────┘
-               └────concat─────┘ └─────────┘
-                  Channel Attention
-                       │
-                Fusion Decoder (skip connections ở 4 tầng)
-                       │
-                  [B, 8, H, W]
-
-    Ví dụ:
-        >>> model = ConditionalDAE()
-        >>> rgb = torch.randn(2, 3, 256, 256)
-        >>> label = torch.randn(2, 8, 256, 256)
-        >>> out = model(rgb, label)
-        >>> print(out.shape)  # → torch.Size([2, 8, 256, 256])
-    """
-    def __init__(self, num_classes=NUM_CLASSES):
-        super().__init__()
-
-        # ---- RGB Encoder (ResNet-34 pretrained) ----
-        _tmp = _get_smp().Unet(encoder_name='resnet34', encoder_weights='imagenet',
-                         in_channels=3, classes=num_classes, activation=None)
-        self.rgb_encoder = _tmp.encoder
-        del _tmp
-        enc_out = self.rgb_encoder.out_channels
-        rgb_chs = list(enc_out[1:])
-
-        # ---- Label Encoder (Lightweight CNN) ----
-        label_chs = [64, 64, 128, 256, 512]
-        self.label_encoder = LabelEncoder(in_ch=num_classes, channels=label_chs)
-
-        # ---- Fusion Module (Channel Attention tại bottleneck) ----
-        fused_ch = rgb_chs[4] + label_chs[4]  # 1024
-        self.fusion_attn = nn.Sequential(
-            nn.Conv2d(fused_ch, 512, 1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d(1),
-        )
-        self.fusion_conv = nn.Sequential(
-            nn.Conv2d(fused_ch, 512, 3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-        )
-
-        # ---- Decoder với skip connections từ cả 2 nhánh ----
-        self.decoder = FusionDecoder(
-            fused_ch=512,
-            rgb_channels=rgb_chs[:4],
-            label_channels=label_chs[:4],
-            num_classes=num_classes,
-        )
-
-    def forward(self, rgb, label):
-        """
-        Args:
-            rgb (Tensor): [B, 3, H, W] ảnh RGB
-            label (Tensor): [B, 8, H, W] nhãn nhiễu one-hot
-
-        Returns:
-            Tensor: [B, 8, H, W] logits
-        """
-        # Encode RGB → 6 features [identity, L1..L5]
-        rgb_feats = self.rgb_encoder(rgb)
-        rgb_bottleneck = rgb_feats[-1]  # [B, 512, H/32, W/32]
-
-        # Encode Label → 5 features [L1..L5]
-        label_feats = self.label_encoder(label)
-        label_bottleneck = label_feats[-1]  # [B, 512, H/32, W/32]
-
-        # Fusion with channel attention
-        fused = torch.cat([rgb_bottleneck, label_bottleneck], dim=1)  # [B, 1024, H/32, W/32]
-        attn = self.fusion_attn(fused)       # [B, 512, 1, 1]
-        fused = self.fusion_conv(fused)      # [B, 512, H/32, W/32]
-        fused = fused * torch.sigmoid(attn)  # Channel attention
-
-        # Decode với skip connections
-        # rgb_feats[1:5] = [H/2, H/4, H/8, H/16, H/32] (5 features from smp)
-        # label_feats[0:4] = [H/2, H/4, H/8, H/16] (4 skip features)
-        return self.decoder(fused, rgb_feats[1:], label_feats[:4])
-
-
-# =============================================================================
-# MODEL 4: LightweightDAE (Later Fusion, no pretrained)
+# MODEL 3: LightweightDAE (Later Fusion, no pretrained)
 # =============================================================================
 class LightweightDAE(nn.Module):
     """
@@ -627,7 +530,6 @@ def build_model(model_name: str, **kwargs) -> nn.Module:
         model_name (str): Tên model, một trong:
             - 'unet_resnet34' : UNetDAE_ResNet34
             - 'unet_effnet'   : UNetDAE_EffNet
-            - 'conditional'   : ConditionalDAE
             - 'lightweight'   : LightweightDAE
         **kwargs: Tham số bổ sung (vd: num_classes=8)
 
@@ -637,7 +539,6 @@ def build_model(model_name: str, **kwargs) -> nn.Module:
     models = {
         'unet_resnet34': UNetDAE_ResNet34,
         'unet_effnet': UNetDAE_EffNet,
-        'conditional': ConditionalDAE,
         'lightweight': LightweightDAE,
     }
     if model_name not in models:
@@ -666,7 +567,7 @@ if __name__ == '__main__':
     label = torch.randn(2, 8, 256, 256)
 
     # Test lần lượt từng model variant
-    for name in ['unet_resnet34', 'unet_effnet', 'conditional', 'lightweight']:
+    for name in ['unet_resnet34', 'unet_effnet', 'lightweight']:
         try:
             model = build_model(name)
             out = model(rgb, label)
