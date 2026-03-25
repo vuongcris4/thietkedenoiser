@@ -59,38 +59,50 @@ class ConvBlock(nn.Module):
         out_ch (int): Số kênh đầu ra
         kernel (int): Kích thước kernel (mặc định 3x3)
         stride (int): Bước nhảy (stride=2 → giảm kích thước /2)
+
+    Input:  [B, in_ch,  H, W]
+    Output: [B, out_ch, H/stride, W/stride]
     """
     def __init__(self, in_ch, out_ch, kernel=3, stride=1):
         super().__init__()
         self.conv = nn.Sequential(
+            # [B, in_ch, H, W] → [B, out_ch, H/stride, W/stride]
             nn.Conv2d(in_ch, out_ch, kernel, stride=stride, padding=kernel//2),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True),
+            # [B, out_ch, H/stride, W/stride] → [B, out_ch, H/stride, W/stride]
             nn.Conv2d(out_ch, out_ch, 3, padding=1),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True),
         )
 
     def forward(self, x):
+        # x: [B, in_ch, H, W] → out: [B, out_ch, H/stride, W/stride]
         return self.conv(x)
 
 
 class UpBlock(nn.Module):
     """
     Khối upsampling: ConvTranspose (tăng gấp đôi kích thước) → BN → ReLU → Conv → BN → ReLU.
+
+    Input:  [B, in_ch,  H,   W]
+    Output: [B, out_ch, 2*H, 2*W]
     """
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.up = nn.Sequential(
+            # [B, in_ch, H, W] → [B, out_ch, 2*H, 2*W]
             nn.ConvTranspose2d(in_ch, out_ch, 4, stride=2, padding=1),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True),
+            # [B, out_ch, 2*H, 2*W] → [B, out_ch, 2*H, 2*W]
             nn.Conv2d(out_ch, out_ch, 3, padding=1),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True),
         )
 
     def forward(self, x):
+        # x: [B, in_ch, H, W] → out: [B, out_ch, 2*H, 2*W]
         return self.up(x)
 
 
@@ -195,26 +207,26 @@ class FusionDecoder(nn.Module):
         Returns:
             logits [B, num_classes, H, W]
         """
-        # D4: upsample bottleneck → H/16, concat skip at H/16
-        d4 = self.up4(fused)
-        d4 = self._match_and_cat(d4, rgb_skips[3], label_skips[3])
+        # D4: upsample bottleneck [B, fused_ch, H/32, W/32] → [B, 256, H/16, W/16]
+        d4 = self.up4(fused)                                       # [B, 256, H/16, W/16]
+        d4 = self._match_and_cat(d4, rgb_skips[3], label_skips[3]) # [B, 256+rgb_ch3+lbl_ch3, H/16, W/16]
 
-        # D3: upsample → H/8, concat skip at H/8
-        d3 = self.up3(d4)
-        d3 = self._match_and_cat(d3, rgb_skips[2], label_skips[2])
+        # D3: [B, d3_in, H/16, W/16] → [B, 128, H/8, W/8]
+        d3 = self.up3(d4)                                          # [B, 128, H/8, W/8]
+        d3 = self._match_and_cat(d3, rgb_skips[2], label_skips[2]) # [B, 128+rgb_ch2+lbl_ch2, H/8, W/8]
 
-        # D2: upsample → H/4, concat skip at H/4
-        d2 = self.up2(d3)
-        d2 = self._match_and_cat(d2, rgb_skips[1], label_skips[1])
+        # D2: [B, d2_in, H/8, W/8] → [B, 64, H/4, W/4]
+        d2 = self.up2(d3)                                          # [B, 64, H/4, W/4]
+        d2 = self._match_and_cat(d2, rgb_skips[1], label_skips[1]) # [B, 64+rgb_ch1+lbl_ch1, H/4, W/4]
 
-        # D1: upsample → H/2, concat skip at H/2
-        d1 = self.up1(d2)
-        d1 = self._match_and_cat(d1, rgb_skips[0], label_skips[0])
+        # D1: [B, d1_in, H/4, W/4] → [B, 64, H/2, W/2]
+        d1 = self.up1(d2)                                          # [B, 64, H/2, W/2]
+        d1 = self._match_and_cat(d1, rgb_skips[0], label_skips[0]) # [B, 64+rgb_ch0+lbl_ch0, H/2, W/2]
 
-        # Upsample H/2 → H, refine, then predict
+        # Upsample [B, final_in, H/2, W/2] → [B, final_in, H, W]
         d1 = F.interpolate(d1, scale_factor=2, mode='bilinear', align_corners=False)
-        out = self.refine(d1)
-        return self.head(out)
+        out = self.refine(d1)   # [B, 64, H, W]
+        return self.head(out)   # [B, num_classes, H, W]
 
     @staticmethod
     def _match_and_cat(x, skip_a, skip_b):
@@ -365,18 +377,30 @@ class UNetDAE_EffNet(nn.Module):
         )
 
     def forward(self, rgb, label):
-        rgb_feats = self.rgb_encoder(rgb)
-        rgb_bottleneck = rgb_feats[-1]
+        """
+        Args:
+            rgb (Tensor): [B, 3, H, W] ảnh RGB
+            label (Tensor): [B, 8, H, W] nhãn nhiễu one-hot
 
-        label_feats = self.label_encoder(label)
-        label_bottleneck = label_feats[-1]
+        Returns:
+            Tensor: [B, 8, H, W] logits
+        """
+        # RGB encoder → 6 features (index 0 = identity, 1..5 = actual features)
+        rgb_feats = self.rgb_encoder(rgb)       # list of 6 tensors
+        rgb_bottleneck = rgb_feats[-1]           # [B, rgb_chs[4], H/32, W/32]
 
-        fused = torch.cat([rgb_bottleneck, label_bottleneck], dim=1)
-        attn = self.fusion_attn(fused)
-        fused = self.fusion_conv(fused)
-        fused = fused * torch.sigmoid(attn)
+        # Label encoder → 5 features
+        label_feats = self.label_encoder(label)  # [f1..f5]
+        label_bottleneck = label_feats[-1]       # [B, 512, H/32, W/32]
 
-        return self.decoder(fused, rgb_feats[1:], label_feats[:4])
+        # Bottleneck fusion with channel attention
+        fused = torch.cat([rgb_bottleneck, label_bottleneck], dim=1)  # [B, rgb_chs[4]+512, H/32, W/32]
+        attn = self.fusion_attn(fused)           # [B, 512, 1, 1]
+        fused = self.fusion_conv(fused)          # [B, 512, H/32, W/32]
+        fused = fused * torch.sigmoid(attn)      # channel attention → [B, 512, H/32, W/32]
+
+        # Decode with skip connections from both branches
+        return self.decoder(fused, rgb_feats[1:], label_feats[:4])  # [B, 8, H, W]
 
 
 # =============================================================================
