@@ -104,8 +104,8 @@ def validate(model, loader, criterion, device):
     Chức năng:
       - Duyệt qua toàn bộ batch trong val_loader.
       - Forward pass (FP16) → tính loss → thu thập prediction và ground truth.
-      - Tính IoU (Intersection over Union) cho từng class.
-      - Tính mIoU (mean IoU) trung bình trên tất cả các class.
+      - Tính IoU cho từng class: DAE prediction vs GT và noisy pseudo-label vs GT.
+      - Tính mIoU trung bình trên tất cả các class.
 
     Args:
         model: Mô hình DAE.
@@ -115,12 +115,15 @@ def validate(model, loader, criterion, device):
 
     Returns:
         avg_loss (float): Loss trung bình trên tập val.
-        miou (float): Mean IoU trung bình các class.
-        ious (dict): IoU riêng cho từng class, ví dụ {'Bareland': 0.85, 'Forest': 0.92, ...}.
+        miou (float): Mean IoU (DAE pred vs GT) trung bình các class.
+        ious (dict): Per-class IoU (DAE pred vs GT).
+        noisy_miou (float): Mean IoU (noisy pseudo-label vs GT).
+        noisy_ious (dict): Per-class IoU (noisy pseudo-label vs GT).
     """
     model.eval()
     total_loss = 0
     all_preds = []
+    all_noisy = []
     all_targets = []
 
     for rgb, noisy_label, targets in loader:
@@ -134,23 +137,42 @@ def validate(model, loader, criterion, device):
 
         total_loss += loss.item() * rgb.size(0)
         pred = outputs.argmax(dim=1)
+        noisy_pred = noisy_label.argmax(dim=1)  # pseudo-label class từ one-hot
         all_preds.append(pred.cpu().numpy())
+        all_noisy.append(noisy_pred.cpu().numpy())
         all_targets.append(targets.cpu().numpy())
 
     all_preds = np.concatenate(all_preds)
+    all_noisy = np.concatenate(all_noisy)
     all_targets = np.concatenate(all_targets)
 
-    # Compute mIoU
+    # Mask valid pixels (exclude ignore_index=255)
+    valid_mask = (all_targets != 255)
+
+    # Compute per-class IoU: DAE prediction vs GT
     ious = {}
     for c in range(NUM_CLASSES):
-        inter = ((all_preds == c) & (all_targets == c)).sum()
-        union = ((all_preds == c) | (all_targets == c)).sum()
+        pred_c = (all_preds == c) & valid_mask
+        gt_c = (all_targets == c) & valid_mask
+        inter = (pred_c & gt_c).sum()
+        union = (pred_c | gt_c).sum()
         if union > 0:
             ious[CLASS_NAMES[c]] = float(inter / union)
     miou = np.mean(list(ious.values())) if ious else 0.0
 
+    # Compute per-class IoU: noisy pseudo-label vs GT
+    noisy_ious = {}
+    for c in range(NUM_CLASSES):
+        noisy_c = (all_noisy == c) & valid_mask
+        gt_c = (all_targets == c) & valid_mask
+        inter = (noisy_c & gt_c).sum()
+        union = (noisy_c | gt_c).sum()
+        if union > 0:
+            noisy_ious[CLASS_NAMES[c]] = float(inter / union)
+    noisy_miou = np.mean(list(noisy_ious.values())) if noisy_ious else 0.0
+
     avg_loss = total_loss / len(loader.dataset)
-    return avg_loss, miou, ious
+    return avg_loss, miou, ious, noisy_miou, noisy_ious
 
 
 def main():
@@ -315,7 +337,7 @@ def main():
         train_loss, train_acc = train_one_epoch(
             model, train_loader, criterion, optimizer, scaler, device
         )
-        val_loss, val_miou, val_ious = validate(model, val_loader, criterion, device)
+        val_loss, val_miou, val_ious, noisy_miou, noisy_ious = validate(model, val_loader, criterion, device)
 
         scheduler.step()
         dt = time.time() - t0
@@ -340,21 +362,32 @@ def main():
                 'train/loss': train_loss,
                 'train/acc': train_acc,
                 'val/loss': val_loss,
-                'val/mIoU': val_miou,
+                'val/mIoU_dae': val_miou,
+                'val/mIoU_noisy': noisy_miou,
+                'val/mIoU_improvement': val_miou - noisy_miou,
                 'lr': optimizer.param_groups[0]['lr'],
                 'epoch_time': dt,
             }
             for cls_name, iou_val in val_ious.items():
-                wandb_log[f'val/IoU_{cls_name}'] = iou_val
+                wandb_log[f'val/IoU_dae_{cls_name}'] = iou_val
+            for cls_name, iou_val in noisy_ious.items():
+                wandb_log[f'val/IoU_noisy_{cls_name}'] = iou_val
+                # Log per-class improvement
+                dae_val = val_ious.get(cls_name, 0.0)
+                wandb_log[f'val/IoU_improve_{cls_name}'] = dae_val - iou_val
             wandb.log(wandb_log)
 
         # Print
-        ious_str = ' '.join([f'{k[:4]}:{v:.3f}' for k, v in val_ious.items()])
+        improvement = val_miou - noisy_miou
         print(f'Epoch {epoch:3d}/{epochs} | '
               f'Train Loss: {train_loss:.4f} Acc: {train_acc:.4f} | '
-              f'Val Loss: {val_loss:.4f} mIoU: {val_miou:.4f} | '
+              f'Val Loss: {val_loss:.4f} DAE mIoU: {val_miou:.4f} Noisy mIoU: {noisy_miou:.4f} '
+              f'Improve: {improvement:+.4f} | '
               f'LR: {optimizer.param_groups[0]["lr"]:.6f} | {dt:.1f}s')
-        print(f'  IoU: {ious_str}')
+        dae_str = ' '.join([f'{k[:4]}:{v:.3f}' for k, v in val_ious.items()])
+        noisy_str = ' '.join([f'{k[:4]}:{v:.3f}' for k, v in noisy_ious.items()])
+        print(f'  DAE IoU:   {dae_str}')
+        print(f'  Noisy IoU: {noisy_str}')
 
         # Save best
         if val_miou > best_miou:

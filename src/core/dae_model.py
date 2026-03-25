@@ -469,7 +469,7 @@ class LightweightDAE(nn.Module):
         label_feats = self.label_encoder(label)  # [f1..f5]
         label_bottleneck = label_feats[-1]
 
-        # Fusion at bottleneck
+        # Fusion at bottleneck, KHÔNG CÓ ATTENTION
         fused = torch.cat([r5, label_bottleneck], dim=1)
         fused = self.fusion_conv(fused)  # [B, 512, H/32, W/32]
 
