@@ -404,6 +404,203 @@ class UNetDAE_EffNet(nn.Module):
 
 
 # =============================================================================
+# MODEL 4: UNetDAE_EffNet_EarlyFusion (Early Fusion)
+# =============================================================================
+class EarlyFusionDecoder(nn.Module):
+    """
+    Decoder đơn giản cho Early Fusion — chỉ có 1 nhánh skip connections.
+
+    Tại mỗi tầng decoder:
+        input = concat(upsampled_prev, encoder_skip_i)
+
+    Kiến trúc:
+        Bottleneck  [bot_ch]               H/32
+            ↓ UpBlock
+        D4: concat(up + skip_H/16)         H/16
+            ↓ UpBlock
+        D3: concat(up + skip_H/8)          H/8
+            ↓ UpBlock
+        D2: concat(up + skip_H/4)          H/4
+            ↓ UpBlock
+        D1: concat(up + skip_H/2)          H/2
+            ↓ Bilinear 2x + ConvRefine
+        Out: 1x1 conv → [B, 8, H, W]      H
+    """
+    def __init__(self, bot_ch, enc_channels, num_classes=NUM_CLASSES):
+        """
+        Args:
+            bot_ch (int): Số kênh bottleneck (sau 1x1 conv giảm chiều)
+            enc_channels (list): [ch_H/2, ch_H/4, ch_H/8, ch_H/16] của encoder
+            num_classes (int): Số lớp output
+        """
+        super().__init__()
+        # D4: bot_ch → 256 (H/32 → H/16)
+        d4_out = 256
+        self.up4 = UpBlock(bot_ch, d4_out)
+
+        # D3: concat(d4_out, enc_H/16) → 128 (H/16 → H/8)
+        d3_in = d4_out + enc_channels[3]
+        d3_out = 128
+        self.up3 = UpBlock(d3_in, d3_out)
+
+        # D2: concat(d3_out, enc_H/8) → 64 (H/8 → H/4)
+        d2_in = d3_out + enc_channels[2]
+        d2_out = 64
+        self.up2 = UpBlock(d2_in, d2_out)
+
+        # D1: concat(d2_out, enc_H/4) → 64 (H/4 → H/2)
+        d1_in = d2_out + enc_channels[1]
+        d1_out = 64
+        self.up1 = UpBlock(d1_in, d1_out)
+
+        # Final: concat(d1_out, enc_H/2) → bilinear 2x → refine → head
+        final_in = d1_out + enc_channels[0]
+        self.refine = nn.Sequential(
+            nn.Conv2d(final_in, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+        )
+        self.head = nn.Conv2d(64, num_classes, 1)
+
+    def forward(self, bottleneck, enc_skips):
+        """
+        Args:
+            bottleneck: [B, bot_ch, H/32, W/32]
+            enc_skips: list ≥ 4 items, indices [0..3] = [H/2, H/4, H/8, H/16]
+
+        Returns:
+            logits [B, num_classes, H, W]
+        """
+        d4 = self.up4(bottleneck)                        # [B, 256, H/16, W/16]
+        d4 = self._match_and_cat(d4, enc_skips[3])       # concat skip H/16
+
+        d3 = self.up3(d4)                                # [B, 128, H/8, W/8]
+        d3 = self._match_and_cat(d3, enc_skips[2])
+
+        d2 = self.up2(d3)                                # [B, 64, H/4, W/4]
+        d2 = self._match_and_cat(d2, enc_skips[1])
+
+        d1 = self.up1(d2)                                # [B, 64, H/2, W/2]
+        d1 = self._match_and_cat(d1, enc_skips[0])
+
+        d1 = F.interpolate(d1, scale_factor=2, mode='bilinear', align_corners=False)
+        out = self.refine(d1)
+        return self.head(out)
+
+    @staticmethod
+    def _match_and_cat(x, skip):
+        """Resize skip nếu cần rồi concat."""
+        if skip.shape[2:] != x.shape[2:]:
+            skip = F.interpolate(skip, size=x.shape[2:], mode='bilinear', align_corners=False)
+        return torch.cat([x, skip], dim=1)
+
+
+class UNetDAE_EffNet_EarlyFusion(nn.Module):
+    """
+    U-Net DAE với Early Fusion sử dụng EfficientNet-B4.
+
+    Khác với Later Fusion (2 nhánh riêng biệt):
+        - Nối RGB (3 kênh) + label one-hot (8 kênh) thành 11 kênh tại input
+        - Dùng 1 encoder duy nhất (EfficientNet-B4, sửa first conv cho 11 kênh)
+        - Decoder đơn giản hơn vì chỉ có 1 bộ skip connections
+
+    Ưu điểm: Đơn giản hơn, ít tham số hơn, cross-modal interaction sớm hơn.
+    Nhược điểm: Không có pretrained weights đầy đủ (chỉ 3/11 kênh dùng được ImageNet).
+
+    Ví dụ:
+        >>> model = UNetDAE_EffNet_EarlyFusion()
+        >>> rgb = torch.randn(2, 3, 256, 256)
+        >>> label = torch.randn(2, 8, 256, 256)
+        >>> out = model(rgb, label)
+        >>> print(out.shape)  # → torch.Size([2, 8, 256, 256])
+    """
+    def __init__(self, num_classes=NUM_CLASSES):
+        super().__init__()
+
+        # Tạo EfficientNet-B4 encoder chuẩn (3 kênh) để lấy pretrained weights
+        _tmp = _get_smp().Unet(encoder_name='efficientnet-b4', encoder_weights='imagenet',
+                         in_channels=3, classes=num_classes, activation=None)
+        pretrained_encoder = _tmp.encoder
+        del _tmp
+
+        # Tạo encoder mới với 11 kênh input (RGB 3 + Label 8)
+        _tmp2 = _get_smp().Unet(encoder_name='efficientnet-b4', encoder_weights=None,
+                          in_channels=3 + num_classes, classes=num_classes, activation=None)
+        self.encoder = _tmp2.encoder
+        del _tmp2
+
+        # Transfer pretrained weights: copy 3 kênh đầu từ encoder pretrained
+        # Tìm first conv layer và transfer weights cho 3 kênh RGB
+        self._transfer_first_conv_weights(pretrained_encoder)
+        del pretrained_encoder
+
+        # Đọc channel info từ encoder
+        enc_out = self.encoder.out_channels  # tuple, e.g. (11, 48, 32, 56, 160, 448) cho 11ch input
+        enc_chs = list(enc_out[1:])  # [ch_H/2, ch_H/4, ch_H/8, ch_H/16, ch_H/32]
+
+        # Bottleneck: giảm chiều bottleneck xuống 512 để chuẩn hoá
+        bot_in = enc_chs[4]  # channel cuối cùng của encoder (e.g. 448 cho effnet-b4)
+        bot_out = 512
+        self.bottleneck_conv = nn.Sequential(
+            nn.Conv2d(bot_in, bot_out, 3, padding=1),
+            nn.BatchNorm2d(bot_out),
+            nn.ReLU(inplace=True),
+        )
+
+        # Decoder với single-branch skip connections
+        self.decoder = EarlyFusionDecoder(
+            bot_ch=bot_out,
+            enc_channels=enc_chs[:4],  # [H/2, H/4, H/8, H/16]
+            num_classes=num_classes,
+        )
+
+    def _transfer_first_conv_weights(self, pretrained_encoder):
+        """Transfer pretrained weights cho 3 kênh RGB đầu tiên của first conv."""
+        # Lấy first conv layer từ cả 2 encoder
+        # EfficientNet trong smp thường có _conv_stem hoặc tương tự
+        pretrained_first = None
+        new_first = None
+
+        for (name_p, mod_p), (name_n, mod_n) in zip(
+            pretrained_encoder.named_modules(), self.encoder.named_modules()
+        ):
+            if isinstance(mod_p, nn.Conv2d) and isinstance(mod_n, nn.Conv2d):
+                if mod_p.in_channels == 3 and mod_n.in_channels == 3 + NUM_CLASSES:
+                    pretrained_first = mod_p
+                    new_first = mod_n
+                    break
+
+        if pretrained_first is not None and new_first is not None:
+            with torch.no_grad():
+                # Copy pretrained weights cho 3 kênh đầu tiên
+                new_first.weight[:, :3, :, :] = pretrained_first.weight
+                # 8 kênh label giữ nguyên random init (kaiming)
+                if pretrained_first.bias is not None and new_first.bias is not None:
+                    new_first.bias.copy_(pretrained_first.bias)
+
+    def forward(self, rgb, label):
+        """
+        Args:
+            rgb (Tensor): [B, 3, H, W] ảnh RGB
+            label (Tensor): [B, 8, H, W] nhãn nhiễu one-hot
+
+        Returns:
+            Tensor: [B, 8, H, W] logits
+        """
+        # Early fusion: nối RGB + label tại input
+        x = torch.cat([rgb, label], dim=1)  # [B, 11, H, W]
+
+        # Single encoder
+        feats = self.encoder(x)  # list of 6 tensors (index 0 = identity)
+
+        # Bottleneck
+        bottleneck = self.bottleneck_conv(feats[-1])  # [B, 512, H/32, W/32]
+
+        # Decode with single-branch skip connections
+        return self.decoder(bottleneck, feats[1:])  # [B, 8, H, W]
+
+
+# =============================================================================
 # MODEL 3: LightweightDAE (Later Fusion, no pretrained)
 # =============================================================================
 class LightweightDAE(nn.Module):
@@ -563,6 +760,7 @@ def build_model(model_name: str, **kwargs) -> nn.Module:
     models = {
         'unet_resnet34': UNetDAE_ResNet34,
         'unet_effnet': UNetDAE_EffNet,
+        'unet_effnet_early': UNetDAE_EffNet_EarlyFusion,
         'lightweight': LightweightDAE,
     }
     if model_name not in models:
@@ -591,7 +789,7 @@ if __name__ == '__main__':
     label = torch.randn(2, 8, 256, 256)
 
     # Test lần lượt từng model variant
-    for name in ['unet_resnet34', 'unet_effnet', 'lightweight']:
+    for name in ['unet_resnet34', 'unet_effnet', 'unet_effnet_early', 'lightweight']:
         try:
             model = build_model(name)
             out = model(rgb, label)

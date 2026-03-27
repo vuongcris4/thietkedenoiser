@@ -1,0 +1,35 @@
+# ============================================================
+# U-Net EfficientNet-B4 DAE Configuration — EARLY FUSION
+# ============================================================
+# Giống dae_effnet.yaml nhưng dùng Early Fusion thay vì Later Fusion:
+#   - Nối RGB (3ch) + label one-hot (8ch) = 11 kênh tại đầu vào
+#   - Dùng 1 encoder duy nhất (EfficientNet-B4)
+#   - Decoder đơn giản hơn (chỉ 1 bộ skip connections)
+# ============================================================
+_base_: "default.yaml"
+
+# Model
+model:
+  name: "unet_effnet_early"
+  encoder_name: "efficientnet-b4"
+  encoder_weights: "imagenet"
+  num_classes: 8
+
+# Training
+training:
+  batch_size: 4
+  epochs: 100
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  optimizer: "adamw"
+  scheduler: "cosine"
+  patience: 15
+
+# Loss
+loss:
+  ce_weight: 1.0
+  dice_weight: 1.0
+  boundary_weight: 0.5
+
+# Data augmentation
+augment: true
