@@ -28,4 +28,4 @@ wandb/
 
 # Checkpoints (keep only best ones in checkpoints/)
 checkpoints/*_latest.pth
-.mcp.json
+checkpoints/*.pth
