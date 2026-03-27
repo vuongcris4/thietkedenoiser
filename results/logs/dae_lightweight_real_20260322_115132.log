@@ -1,0 +1,381 @@
+W&B run: https://wandb.ai/vuongcris4-hcmute/thietkedenoiser/runs/jgtw3ej6
+Using REAL pseudo-labels from: data/OEM_v2_aDanh
+RealNoiseDAEDataset train: 1751 samples
+RealNoiseDAEDataset val: 218 samples
+Model params: 14.3M total, 14.3M trainable
+/home/ubuntu/thietkedenoiser/src/scripts/train_dae.py:290: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler()
+/home/ubuntu/thietkedenoiser/src/scripts/train_dae.py:78: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast():
+  Batch 20/437 | Loss: 2.9825 | Acc: 0.4628
+  Batch 40/437 | Loss: 3.0515 | Acc: 0.5543
+  Batch 60/437 | Loss: 2.5217 | Acc: 0.5933
+  Batch 80/437 | Loss: 2.6921 | Acc: 0.6187
+  Batch 100/437 | Loss: 2.8495 | Acc: 0.6315
+  Batch 120/437 | Loss: 2.6352 | Acc: 0.6332
+  Batch 140/437 | Loss: 2.4362 | Acc: 0.6421
+  Batch 160/437 | Loss: 2.6010 | Acc: 0.6493
+  Batch 180/437 | Loss: 2.5618 | Acc: 0.6529
+  Batch 200/437 | Loss: 2.4982 | Acc: 0.6568
+  Batch 220/437 | Loss: 2.7237 | Acc: 0.6565
+  Batch 240/437 | Loss: 2.4972 | Acc: 0.6596
+  Batch 260/437 | Loss: 2.6676 | Acc: 0.6613
+  Batch 280/437 | Loss: 2.1643 | Acc: 0.6630
+  Batch 300/437 | Loss: 2.3599 | Acc: 0.6650
+  Batch 320/437 | Loss: 2.5595 | Acc: 0.6653
+  Batch 340/437 | Loss: 2.1704 | Acc: 0.6668
+  Batch 360/437 | Loss: 2.3988 | Acc: 0.6663
+  Batch 380/437 | Loss: 2.5509 | Acc: 0.6666
+  Batch 400/437 | Loss: 2.1204 | Acc: 0.6685
+  Batch 420/437 | Loss: 2.8623 | Acc: 0.6699
+/home/ubuntu/thietkedenoiser/src/scripts/train_dae.py:131: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast():
+Epoch   1/100 | Train Loss: 2.6306 Acc: 0.6703 | Val Loss: 2.3226 mIoU: 0.4757 | LR: 0.000100 | 124.4s
+  IoU: Bare:0.003 Rang:0.449 Deve:0.450 Road:0.478 Tree:0.624 Wate:0.515 Agri:0.603 Buil:0.684
+  >>> New best mIoU: 0.4757, saved to checkpoints/dae_lightweight_real_20260322_115132_best.pth
+  Batch 20/437 | Loss: 2.3922 | Acc: 0.6645
+  Batch 40/437 | Loss: 2.7623 | Acc: 0.6760
+  Batch 60/437 | Loss: 3.0151 | Acc: 0.6837
+  Batch 80/437 | Loss: 2.8995 | Acc: 0.6840
+  Batch 100/437 | Loss: 2.2030 | Acc: 0.6855
+  Batch 120/437 | Loss: 2.2286 | Acc: 0.6868
+  Batch 140/437 | Loss: 2.4376 | Acc: 0.6905
+  Batch 160/437 | Loss: 2.4100 | Acc: 0.6896
+  Batch 180/437 | Loss: 2.0971 | Acc: 0.6903
+  Batch 200/437 | Loss: 2.2779 | Acc: 0.6893
+  Batch 220/437 | Loss: 2.3293 | Acc: 0.6906
+  Batch 240/437 | Loss: 2.4122 | Acc: 0.6897
+  Batch 260/437 | Loss: 2.3897 | Acc: 0.6897
+  Batch 280/437 | Loss: 2.3218 | Acc: 0.6904
+  Batch 300/437 | Loss: 2.4536 | Acc: 0.6901
+  Batch 320/437 | Loss: 1.9952 | Acc: 0.6907
+  Batch 340/437 | Loss: 2.0278 | Acc: 0.6924
+  Batch 360/437 | Loss: 2.9264 | Acc: 0.6909
+  Batch 380/437 | Loss: 2.5381 | Acc: 0.6906
+  Batch 400/437 | Loss: 2.1371 | Acc: 0.6899
+  Batch 420/437 | Loss: 2.0861 | Acc: 0.6898
+Epoch   2/100 | Train Loss: 2.3380 Acc: 0.6899 | Val Loss: 2.1821 mIoU: 0.4844 | LR: 0.000100 | 120.6s
+  IoU: Bare:0.004 Rang:0.451 Deve:0.448 Road:0.480 Tree:0.627 Wate:0.569 Agri:0.606 Buil:0.689
+  >>> New best mIoU: 0.4844, saved to checkpoints/dae_lightweight_real_20260322_115132_best.pth
+  Batch 20/437 | Loss: 2.6471 | Acc: 0.7006
+  Batch 40/437 | Loss: 2.2988 | Acc: 0.6934
+  Batch 60/437 | Loss: 2.1048 | Acc: 0.6872
+  Batch 80/437 | Loss: 2.4170 | Acc: 0.6897
+  Batch 100/437 | Loss: 2.2687 | Acc: 0.6851
+  Batch 120/437 | Loss: 2.0837 | Acc: 0.6876
+  Batch 140/437 | Loss: 2.5580 | Acc: 0.6891
+  Batch 160/437 | Loss: 2.3432 | Acc: 0.6892
+  Batch 180/437 | Loss: 2.7270 | Acc: 0.6894
+  Batch 200/437 | Loss: 2.1828 | Acc: 0.6878
+  Batch 220/437 | Loss: 2.0741 | Acc: 0.6880
+  Batch 240/437 | Loss: 2.3436 | Acc: 0.6896
+  Batch 260/437 | Loss: 2.1614 | Acc: 0.6888
+  Batch 280/437 | Loss: 2.3251 | Acc: 0.6889
+  Batch 300/437 | Loss: 2.1604 | Acc: 0.6902
+  Batch 320/437 | Loss: 2.3115 | Acc: 0.6908
+  Batch 340/437 | Loss: 2.1587 | Acc: 0.6929
+  Batch 360/437 | Loss: 2.3958 | Acc: 0.6944
+  Batch 380/437 | Loss: 2.0742 | Acc: 0.6944
+  Batch 400/437 | Loss: 2.0875 | Acc: 0.6948
+  Batch 420/437 | Loss: 2.9954 | Acc: 0.6934
+Epoch   3/100 | Train Loss: 2.2419 Acc: 0.6930 | Val Loss: 2.1402 mIoU: 0.4866 | LR: 0.000100 | 306.3s
+  IoU: Bare:0.025 Rang:0.458 Deve:0.447 Road:0.489 Tree:0.629 Wate:0.527 Agri:0.623 Buil:0.696
+  >>> New best mIoU: 0.4866, saved to checkpoints/dae_lightweight_real_20260322_115132_best.pth
+  Batch 20/437 | Loss: 2.3384 | Acc: 0.6883
+  Batch 40/437 | Loss: 2.0369 | Acc: 0.6961
+  Batch 60/437 | Loss: 2.5971 | Acc: 0.6931
+  Batch 80/437 | Loss: 1.9525 | Acc: 0.6918
+  Batch 100/437 | Loss: 2.1878 | Acc: 0.6923
+  Batch 120/437 | Loss: 2.2239 | Acc: 0.6926
+  Batch 140/437 | Loss: 2.1396 | Acc: 0.6932
+  Batch 160/437 | Loss: 2.2097 | Acc: 0.6924
+  Batch 180/437 | Loss: 1.9122 | Acc: 0.6954
+  Batch 200/437 | Loss: 1.9167 | Acc: 0.6969
+  Batch 220/437 | Loss: 2.2489 | Acc: 0.6984
+  Batch 240/437 | Loss: 2.3640 | Acc: 0.6976
+  Batch 260/437 | Loss: 2.3066 | Acc: 0.6980
+  Batch 280/437 | Loss: 2.0498 | Acc: 0.6977
+  Batch 300/437 | Loss: 1.9434 | Acc: 0.6977
+  Batch 320/437 | Loss: 1.9554 | Acc: 0.6970
+  Batch 340/437 | Loss: 2.2972 | Acc: 0.6957
+  Batch 360/437 | Loss: 2.0678 | Acc: 0.6948
+  Batch 380/437 | Loss: 2.1646 | Acc: 0.6947
+  Batch 400/437 | Loss: 1.9020 | Acc: 0.6952
+  Batch 420/437 | Loss: 2.2452 | Acc: 0.6941
+Epoch   4/100 | Train Loss: 2.1989 Acc: 0.6941 | Val Loss: 2.1035 mIoU: 0.4940 | LR: 0.000100 | 91.3s
+  IoU: Bare:0.037 Rang:0.454 Deve:0.454 Road:0.487 Tree:0.625 Wate:0.578 Agri:0.626 Buil:0.692
+  >>> New best mIoU: 0.4940, saved to checkpoints/dae_lightweight_real_20260322_115132_best.pth
+  Batch 20/437 | Loss: 1.8737 | Acc: 0.6995
+  Batch 40/437 | Loss: 1.9798 | Acc: 0.7036
+  Batch 60/437 | Loss: 1.8591 | Acc: 0.7033
+  Batch 80/437 | Loss: 1.9870 | Acc: 0.7035
+  Batch 100/437 | Loss: 2.0517 | Acc: 0.7039
+  Batch 120/437 | Loss: 2.0483 | Acc: 0.7037
+  Batch 140/437 | Loss: 2.2460 | Acc: 0.7016
+  Batch 160/437 | Loss: 1.9250 | Acc: 0.7015
+  Batch 180/437 | Loss: 2.0367 | Acc: 0.7002
+  Batch 200/437 | Loss: 1.9583 | Acc: 0.6989
+  Batch 220/437 | Loss: 2.0865 | Acc: 0.6990
+  Batch 240/437 | Loss: 2.4150 | Acc: 0.6972
+  Batch 260/437 | Loss: 2.5131 | Acc: 0.6967
+  Batch 280/437 | Loss: 2.3934 | Acc: 0.6970
+  Batch 300/437 | Loss: 2.8389 | Acc: 0.6980
+  Batch 320/437 | Loss: 1.9141 | Acc: 0.6995
+  Batch 340/437 | Loss: 2.0321 | Acc: 0.6993
+  Batch 360/437 | Loss: 2.1907 | Acc: 0.6998
+  Batch 380/437 | Loss: 2.4569 | Acc: 0.6990
+  Batch 400/437 | Loss: 2.2607 | Acc: 0.6976
+  Batch 420/437 | Loss: 2.2540 | Acc: 0.6973
+Epoch   5/100 | Train Loss: 2.1617 Acc: 0.6973 | Val Loss: 2.0801 mIoU: 0.5266 | LR: 0.000099 | 72.4s
+  IoU: Bare:0.261 Rang:0.461 Deve:0.452 Road:0.491 Tree:0.620 Wate:0.602 Agri:0.625 Buil:0.700
+  >>> New best mIoU: 0.5266, saved to checkpoints/dae_lightweight_real_20260322_115132_best.pth
+  Batch 20/437 | Loss: 1.9756 | Acc: 0.6768
+  Batch 40/437 | Loss: 1.7652 | Acc: 0.6870
+  Batch 60/437 | Loss: 1.9882 | Acc: 0.6872
+  Batch 80/437 | Loss: 1.9505 | Acc: 0.6954
+  Batch 100/437 | Loss: 1.8146 | Acc: 0.6979
+  Batch 120/437 | Loss: 1.9882 | Acc: 0.7001
+  Batch 140/437 | Loss: 1.9645 | Acc: 0.6960
+  Batch 160/437 | Loss: 2.2829 | Acc: 0.6957
+  Batch 180/437 | Loss: 2.5612 | Acc: 0.6951
+  Batch 200/437 | Loss: 1.9765 | Acc: 0.6947
+  Batch 220/437 | Loss: 2.0129 | Acc: 0.6952
+  Batch 240/437 | Loss: 2.5082 | Acc: 0.6961
+  Batch 260/437 | Loss: 2.2808 | Acc: 0.6947
+  Batch 280/437 | Loss: 1.9496 | Acc: 0.6946
+  Batch 300/437 | Loss: 2.0810 | Acc: 0.6948
+  Batch 320/437 | Loss: 2.2329 | Acc: 0.6947
+  Batch 340/437 | Loss: 1.9569 | Acc: 0.6951
+  Batch 360/437 | Loss: 2.4246 | Acc: 0.6959
+  Batch 380/437 | Loss: 1.9236 | Acc: 0.6961
+  Batch 400/437 | Loss: 2.0340 | Acc: 0.6966
+  Batch 420/437 | Loss: 2.3067 | Acc: 0.6974
+Epoch   6/100 | Train Loss: 2.1457 Acc: 0.6977 | Val Loss: 2.0783 mIoU: 0.4956 | LR: 0.000099 | 70.3s
+  IoU: Bare:0.049 Rang:0.461 Deve:0.454 Road:0.491 Tree:0.629 Wate:0.553 Agri:0.629 Buil:0.699
+  Batch 20/437 | Loss: 1.9142 | Acc: 0.6947
+  Batch 40/437 | Loss: 2.1965 | Acc: 0.7024
+  Batch 60/437 | Loss: 1.9828 | Acc: 0.7030
+  Batch 80/437 | Loss: 1.9998 | Acc: 0.6994
+  Batch 100/437 | Loss: 2.2127 | Acc: 0.6993
+  Batch 120/437 | Loss: 1.9503 | Acc: 0.6958
+  Batch 140/437 | Loss: 2.1809 | Acc: 0.6952
+  Batch 160/437 | Loss: 1.8267 | Acc: 0.6962
+  Batch 180/437 | Loss: 2.0357 | Acc: 0.6963
+  Batch 200/437 | Loss: 2.0834 | Acc: 0.6969
+  Batch 220/437 | Loss: 2.0211 | Acc: 0.6963
+  Batch 240/437 | Loss: 2.0162 | Acc: 0.6977
+  Batch 260/437 | Loss: 2.1341 | Acc: 0.6993
+  Batch 280/437 | Loss: 2.1204 | Acc: 0.6988
+  Batch 300/437 | Loss: 2.3346 | Acc: 0.6982
+  Batch 320/437 | Loss: 1.8432 | Acc: 0.6992
+  Batch 340/437 | Loss: 2.1510 | Acc: 0.6987
+  Batch 360/437 | Loss: 1.9450 | Acc: 0.6996
+  Batch 380/437 | Loss: 2.1639 | Acc: 0.6995
+  Batch 400/437 | Loss: 2.6650 | Acc: 0.6989
+  Batch 420/437 | Loss: 1.8956 | Acc: 0.7001
+Epoch   7/100 | Train Loss: 2.1119 Acc: 0.7003 | Val Loss: 2.0404 mIoU: 0.5093 | LR: 0.000099 | 68.6s
+  IoU: Bare:0.149 Rang:0.467 Deve:0.459 Road:0.494 Tree:0.633 Wate:0.542 Agri:0.630 Buil:0.701
+  Batch 20/437 | Loss: 2.3819 | Acc: 0.7143
+  Batch 40/437 | Loss: 2.3835 | Acc: 0.7088
+  Batch 60/437 | Loss: 2.2392 | Acc: 0.6998
+  Batch 80/437 | Loss: 1.9833 | Acc: 0.7013
+  Batch 100/437 | Loss: 2.0061 | Acc: 0.7002
+  Batch 120/437 | Loss: 2.0212 | Acc: 0.6995
+  Batch 140/437 | Loss: 2.5423 | Acc: 0.7026
+  Batch 160/437 | Loss: 2.1887 | Acc: 0.7037
+  Batch 180/437 | Loss: 1.9084 | Acc: 0.7052
+  Batch 200/437 | Loss: 1.8294 | Acc: 0.7025
+  Batch 220/437 | Loss: 2.1972 | Acc: 0.7029
+  Batch 240/437 | Loss: 1.9239 | Acc: 0.7037
+  Batch 260/437 | Loss: 1.8281 | Acc: 0.7036
+  Batch 280/437 | Loss: 2.5095 | Acc: 0.7018
+  Batch 300/437 | Loss: 1.9976 | Acc: 0.7018
+  Batch 320/437 | Loss: 1.8011 | Acc: 0.7024
+  Batch 340/437 | Loss: 2.1540 | Acc: 0.7018
+  Batch 360/437 | Loss: 2.1188 | Acc: 0.7010
+  Batch 380/437 | Loss: 2.1704 | Acc: 0.6998
+  Batch 400/437 | Loss: 1.9271 | Acc: 0.6996
+  Batch 420/437 | Loss: 2.1444 | Acc: 0.7004
+Epoch   8/100 | Train Loss: 2.1011 Acc: 0.7004 | Val Loss: 2.0387 mIoU: 0.5158 | LR: 0.000098 | 63.2s
+  IoU: Bare:0.254 Rang:0.465 Deve:0.463 Road:0.490 Tree:0.626 Wate:0.493 Agri:0.633 Buil:0.702
+  Batch 20/437 | Loss: 1.8768 | Acc: 0.7247
+  Batch 40/437 | Loss: 2.1170 | Acc: 0.6996
+  Batch 60/437 | Loss: 2.1866 | Acc: 0.7017
+  Batch 80/437 | Loss: 1.9247 | Acc: 0.6996
+  Batch 100/437 | Loss: 2.3574 | Acc: 0.6939
+  Batch 120/437 | Loss: 1.9599 | Acc: 0.6962
+  Batch 140/437 | Loss: 1.8805 | Acc: 0.6975
+  Batch 160/437 | Loss: 1.8233 | Acc: 0.6960
+  Batch 180/437 | Loss: 2.2998 | Acc: 0.6968
+  Batch 200/437 | Loss: 2.0020 | Acc: 0.6962
+  Batch 220/437 | Loss: 2.2580 | Acc: 0.6955
+  Batch 240/437 | Loss: 2.5140 | Acc: 0.6958
+  Batch 260/437 | Loss: 1.8863 | Acc: 0.6988
+  Batch 280/437 | Loss: 1.8220 | Acc: 0.6985
+  Batch 300/437 | Loss: 2.0069 | Acc: 0.7001
+  Batch 320/437 | Loss: 2.2688 | Acc: 0.6997
+  Batch 340/437 | Loss: 2.3544 | Acc: 0.6993
+  Batch 360/437 | Loss: 2.4886 | Acc: 0.6992
+  Batch 380/437 | Loss: 2.0340 | Acc: 0.6996
+  Batch 400/437 | Loss: 1.8764 | Acc: 0.7000
+  Batch 420/437 | Loss: 2.2042 | Acc: 0.7004
+Epoch   9/100 | Train Loss: 2.0899 Acc: 0.7008 | Val Loss: 2.0445 mIoU: 0.5081 | LR: 0.000098 | 65.7s
+  IoU: Bare:0.120 Rang:0.458 Deve:0.464 Road:0.492 Tree:0.616 Wate:0.581 Agri:0.636 Buil:0.698
+  Batch 20/437 | Loss: 2.4207 | Acc: 0.6749
+  Batch 40/437 | Loss: 1.9135 | Acc: 0.6993
+  Batch 60/437 | Loss: 2.5640 | Acc: 0.7008
+  Batch 80/437 | Loss: 1.7563 | Acc: 0.7030
+  Batch 100/437 | Loss: 2.0657 | Acc: 0.7014
+  Batch 120/437 | Loss: 2.4892 | Acc: 0.7021
+  Batch 140/437 | Loss: 1.9262 | Acc: 0.7028
+  Batch 160/437 | Loss: 1.7690 | Acc: 0.7033
+  Batch 180/437 | Loss: 1.8452 | Acc: 0.7020
+  Batch 200/437 | Loss: 1.9051 | Acc: 0.7024
+  Batch 220/437 | Loss: 2.3976 | Acc: 0.7025
+  Batch 240/437 | Loss: 2.4505 | Acc: 0.7015
+  Batch 260/437 | Loss: 1.7868 | Acc: 0.7001
+  Batch 280/437 | Loss: 1.9661 | Acc: 0.6998
+  Batch 300/437 | Loss: 2.0282 | Acc: 0.7009
+  Batch 320/437 | Loss: 2.1770 | Acc: 0.7026
+  Batch 340/437 | Loss: 2.0078 | Acc: 0.7016
+  Batch 360/437 | Loss: 1.8598 | Acc: 0.7015
+  Batch 380/437 | Loss: 2.0104 | Acc: 0.7022
+  Batch 400/437 | Loss: 1.7207 | Acc: 0.7027
+  Batch 420/437 | Loss: 2.2039 | Acc: 0.7021
+Epoch  10/100 | Train Loss: 2.0792 Acc: 0.7023 | Val Loss: 2.0586 mIoU: 0.5233 | LR: 0.000098 | 64.3s
+  IoU: Bare:0.209 Rang:0.454 Deve:0.453 Road:0.498 Tree:0.622 Wate:0.617 Agri:0.631 Buil:0.703
+  Batch 20/437 | Loss: 1.9620 | Acc: 0.7065
+  Batch 40/437 | Loss: 2.0562 | Acc: 0.7053
+  Batch 60/437 | Loss: 1.9467 | Acc: 0.7005
+  Batch 80/437 | Loss: 1.8426 | Acc: 0.7004
+  Batch 100/437 | Loss: 2.1057 | Acc: 0.7058
+  Batch 120/437 | Loss: 1.8983 | Acc: 0.7027
+  Batch 140/437 | Loss: 1.8332 | Acc: 0.7044
+  Batch 160/437 | Loss: 1.9307 | Acc: 0.7050
+  Batch 180/437 | Loss: 1.7644 | Acc: 0.7069
+  Batch 200/437 | Loss: 1.9389 | Acc: 0.7078
+  Batch 220/437 | Loss: 2.4470 | Acc: 0.7071
+  Batch 240/437 | Loss: 2.0808 | Acc: 0.7063
+  Batch 260/437 | Loss: 2.4067 | Acc: 0.7045
+  Batch 280/437 | Loss: 1.9353 | Acc: 0.7043
+  Batch 300/437 | Loss: 1.6717 | Acc: 0.7046
+  Batch 320/437 | Loss: 2.3768 | Acc: 0.7042
+  Batch 340/437 | Loss: 1.9596 | Acc: 0.7059
+  Batch 360/437 | Loss: 1.9839 | Acc: 0.7052
+  Batch 380/437 | Loss: 1.9683 | Acc: 0.7066
+  Batch 400/437 | Loss: 2.3313 | Acc: 0.7054
+  Batch 420/437 | Loss: 2.3016 | Acc: 0.7052
+Epoch  11/100 | Train Loss: 2.0642 Acc: 0.7044 | Val Loss: 1.9945 mIoU: 0.5192 | LR: 0.000097 | 64.9s
+  IoU: Bare:0.136 Rang:0.467 Deve:0.469 Road:0.498 Tree:0.621 Wate:0.620 Agri:0.636 Buil:0.706
+  Batch 20/437 | Loss: 1.9368 | Acc: 0.7328
+  Batch 40/437 | Loss: 2.1268 | Acc: 0.7126
+  Batch 60/437 | Loss: 2.3136 | Acc: 0.7115
+  Batch 80/437 | Loss: 1.7907 | Acc: 0.7133
+  Batch 100/437 | Loss: 2.1792 | Acc: 0.7132
+  Batch 120/437 | Loss: 1.9708 | Acc: 0.7120
+  Batch 140/437 | Loss: 2.2072 | Acc: 0.7077
+  Batch 160/437 | Loss: 2.0345 | Acc: 0.7069
+  Batch 180/437 | Loss: 1.9365 | Acc: 0.7079
+  Batch 200/437 | Loss: 2.0546 | Acc: 0.7075
+  Batch 220/437 | Loss: 2.2239 | Acc: 0.7070
+  Batch 240/437 | Loss: 1.9347 | Acc: 0.7069
+  Batch 260/437 | Loss: 2.2186 | Acc: 0.7074
+  Batch 280/437 | Loss: 1.7553 | Acc: 0.7068
+  Batch 300/437 | Loss: 1.9513 | Acc: 0.7057
+  Batch 320/437 | Loss: 2.0459 | Acc: 0.7059
+  Batch 340/437 | Loss: 2.3489 | Acc: 0.7047
+  Batch 360/437 | Loss: 2.0508 | Acc: 0.7056
+  Batch 380/437 | Loss: 1.8781 | Acc: 0.7059
+  Batch 400/437 | Loss: 1.9006 | Acc: 0.7046
+  Batch 420/437 | Loss: 1.7272 | Acc: 0.7053
+Epoch  12/100 | Train Loss: 2.0513 Acc: 0.7055 | Val Loss: 1.9924 mIoU: 0.5128 | LR: 0.000096 | 65.6s
+  IoU: Bare:0.084 Rang:0.465 Deve:0.468 Road:0.501 Tree:0.624 Wate:0.617 Agri:0.637 Buil:0.706
+  Batch 20/437 | Loss: 1.8765 | Acc: 0.6958
+  Batch 40/437 | Loss: 2.2709 | Acc: 0.7019
+  Batch 60/437 | Loss: 2.0459 | Acc: 0.7050
+  Batch 80/437 | Loss: 1.7707 | Acc: 0.7067
+  Batch 100/437 | Loss: 1.8517 | Acc: 0.7108
+  Batch 120/437 | Loss: 2.0799 | Acc: 0.7109
+  Batch 140/437 | Loss: 2.0271 | Acc: 0.7087
+  Batch 160/437 | Loss: 2.0340 | Acc: 0.7110
+  Batch 180/437 | Loss: 2.0028 | Acc: 0.7116
+  Batch 200/437 | Loss: 1.9249 | Acc: 0.7114
+  Batch 220/437 | Loss: 1.8893 | Acc: 0.7131
+  Batch 240/437 | Loss: 1.9801 | Acc: 0.7136
+  Batch 260/437 | Loss: 1.8711 | Acc: 0.7113
+  Batch 280/437 | Loss: 2.0391 | Acc: 0.7089
+  Batch 300/437 | Loss: 2.0381 | Acc: 0.7089
+  Batch 320/437 | Loss: 1.7919 | Acc: 0.7086
+  Batch 340/437 | Loss: 2.1554 | Acc: 0.7082
+  Batch 360/437 | Loss: 1.9534 | Acc: 0.7067
+  Batch 380/437 | Loss: 1.7754 | Acc: 0.7070
+  Batch 400/437 | Loss: 1.6950 | Acc: 0.7071
+  Batch 420/437 | Loss: 1.9480 | Acc: 0.7067
+Epoch  13/100 | Train Loss: 2.0416 Acc: 0.7055 | Val Loss: 1.9864 mIoU: 0.5251 | LR: 0.000096 | 66.1s
+  IoU: Bare:0.172 Rang:0.472 Deve:0.473 Road:0.505 Tree:0.630 Wate:0.615 Agri:0.630 Buil:0.704
+  Batch 20/437 | Loss: 2.2219 | Acc: 0.7021
+  Batch 40/437 | Loss: 1.9685 | Acc: 0.7084
+  Batch 60/437 | Loss: 1.8802 | Acc: 0.7060
+  Batch 80/437 | Loss: 1.7609 | Acc: 0.7006
+  Batch 100/437 | Loss: 2.1172 | Acc: 0.7006
+  Batch 120/437 | Loss: 2.1018 | Acc: 0.6994
+  Batch 140/437 | Loss: 2.0580 | Acc: 0.7021
+  Batch 160/437 | Loss: 1.7556 | Acc: 0.7027
+  Batch 180/437 | Loss: 2.1310 | Acc: 0.7018
+  Batch 200/437 | Loss: 1.7846 | Acc: 0.7031
+  Batch 220/437 | Loss: 1.9274 | Acc: 0.7055
+  Batch 240/437 | Loss: 1.9718 | Acc: 0.7086
+  Batch 260/437 | Loss: 1.9903 | Acc: 0.7082
+  Batch 280/437 | Loss: 1.7566 | Acc: 0.7086
+  Batch 300/437 | Loss: 1.7647 | Acc: 0.7075
+  Batch 320/437 | Loss: 1.8271 | Acc: 0.7064
+  Batch 340/437 | Loss: 1.7937 | Acc: 0.7076
+  Batch 360/437 | Loss: 1.8963 | Acc: 0.7083
+  Batch 380/437 | Loss: 1.8764 | Acc: 0.7069
+  Batch 400/437 | Loss: 2.1781 | Acc: 0.7065
+  Batch 420/437 | Loss: 2.2477 | Acc: 0.7060
+Epoch  14/100 | Train Loss: 2.0279 Acc: 0.7063 | Val Loss: 1.9827 mIoU: 0.5229 | LR: 0.000095 | 64.9s
+  IoU: Bare:0.215 Rang:0.465 Deve:0.463 Road:0.500 Tree:0.631 Wate:0.561 Agri:0.643 Buil:0.706
+  Batch 20/437 | Loss: 2.7490 | Acc: 0.7167
+  Batch 40/437 | Loss: 1.7053 | Acc: 0.7140
+  Batch 60/437 | Loss: 1.6085 | Acc: 0.7131
+  Batch 80/437 | Loss: 1.8916 | Acc: 0.7165
+  Batch 100/437 | Loss: 1.8607 | Acc: 0.7155
+  Batch 120/437 | Loss: 2.0840 | Acc: 0.7117
+  Batch 140/437 | Loss: 1.9376 | Acc: 0.7075
+  Batch 160/437 | Loss: 2.0520 | Acc: 0.7091
+  Batch 180/437 | Loss: 1.8090 | Acc: 0.7103
+  Batch 200/437 | Loss: 2.2180 | Acc: 0.7051
+  Batch 220/437 | Loss: 1.8007 | Acc: 0.7045
+  Batch 240/437 | Loss: 1.9732 | Acc: 0.7034
+  Batch 260/437 | Loss: 2.3955 | Acc: 0.7030
+  Batch 280/437 | Loss: 1.9967 | Acc: 0.7035
+  Batch 300/437 | Loss: 2.1350 | Acc: 0.7049
+  Batch 320/437 | Loss: 2.1845 | Acc: 0.7059
+  Batch 340/437 | Loss: 2.0912 | Acc: 0.7069
+  Batch 360/437 | Loss: 2.0569 | Acc: 0.7063
+  Batch 380/437 | Loss: 2.5036 | Acc: 0.7066
+  Batch 400/437 | Loss: 2.4361 | Acc: 0.7067
+  Batch 420/437 | Loss: 1.8032 | Acc: 0.7078
+Epoch  15/100 | Train Loss: 2.0185 Acc: 0.7083 | Val Loss: 1.9839 mIoU: 0.5207 | LR: 0.000095 | 65.1s
+  IoU: Bare:0.207 Rang:0.449 Deve:0.474 Road:0.505 Tree:0.634 Wate:0.547 Agri:0.643 Buil:0.707
+  Early stopping at epoch 15 (patience=10)
+
+============================================================
+Training complete!
+Best mIoU: 0.5266
+History saved to: results/logs/dae_lightweight_real_20260322_115132_history.json
+============================================================
+Uploading checkpoint to W&B...
+  Uploaded: checkpoints/dae_lightweight_real_20260322_115132_best.pth
+Generating inference table for W&B...
+RealNoiseDAEDataset val: 218 samples
+/home/ubuntu/thietkedenoiser/src/scripts/train_dae.py:479: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast():
+  Logged val inference table (10 rows) to W&B
+Running inference on TEST set...
+RealNoiseDAEDataset test: 220 samples
+/home/ubuntu/thietkedenoiser/src/scripts/train_dae.py:541: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast():
+  Logged test inference table (15 rows) to W&B
+  Test mean improvement: 0.0349 (+/- 0.0484)

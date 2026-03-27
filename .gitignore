@@ -13,19 +13,6 @@ build/
 .DS_Store
 *.bak
 
-# Large logs
-results/logs/*.log
-
-# Model weights
-results/*.log
 
 # W&B local data
 wandb/
-
-# Visualizations (keep in results/ only)
-*.png
-!results/visualizations/*.png
-
-# Checkpoints (keep only best ones in checkpoints/)
-checkpoints/*_latest.pth
-checkpoints/*.pth
